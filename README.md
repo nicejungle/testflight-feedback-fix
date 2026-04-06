@@ -229,6 +229,10 @@ This project uses testflight-feedback-fix for automated feedback handling.
 - Deploy branch: `release` (push to release triggers TestFlight upload)
 ```
 
+## About
+
+Open sourced by [**石竹株式会社 (ISHITAKE Inc.)**](https://ishitakes.com/)
+
 ## License
 
 MIT

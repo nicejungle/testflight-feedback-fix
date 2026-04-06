@@ -225,6 +225,10 @@ testflight-feedback-fix/
 - 部署分支：`release`（推送到 release 触发 TestFlight 上传）
 ```
 
+## 关于
+
+由 [**石竹株式会社 (ISHITAKE Inc.)**](https://ishitakes.com/) 开源
+
 ## 许可证
 
 MIT

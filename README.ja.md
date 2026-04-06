@@ -225,6 +225,10 @@ testflight-feedback-fix/
 - デプロイブランチ：`release`（release へのプッシュで TestFlight アップロードが起動）
 ```
 
+## プロジェクトについて
+
+[**石竹株式会社 (ISHITAKE Inc.)**](https://ishitakes.com/) によるオープンソースプロジェクト
+
 ## ライセンス
 
 MIT

@@ -70,9 +70,18 @@ code { font-family: 'JetBrains Mono', monospace; }
     <a class="text-secondary hover:text-on-surface transition-colors" href="#guides">Guides</a>
     <a class="text-secondary hover:text-on-surface transition-colors" href="#faq">FAQ</a>
   </div>
-  <a class="bg-primary text-on-primary px-4 py-2 rounded-xl font-bold text-sm hover:scale-95 transition-transform flex items-center gap-2" href="https://github.com/nicejungle/testflight-feedback-fix">
-    <span class="material-symbols-outlined text-sm">code</span> GitHub
-  </a>
+  <div class="flex items-center gap-4">
+    <div class="hidden sm:flex items-center gap-2 text-xs text-secondary">
+      <a href="#" onclick="setLang('en')" class="hover:text-primary transition-colors font-semibold">EN</a>
+      <span class="text-outline-variant">|</span>
+      <a href="#" onclick="setLang('zh')" class="hover:text-primary transition-colors">中文</a>
+      <span class="text-outline-variant">|</span>
+      <a href="#" onclick="setLang('ja')" class="hover:text-primary transition-colors">日本語</a>
+    </div>
+    <a class="bg-primary text-on-primary px-4 py-2 rounded-xl font-bold text-sm hover:scale-95 transition-transform flex items-center gap-2" href="https://github.com/nicejungle/testflight-feedback-fix">
+      <span class="material-symbols-outlined text-sm">code</span> GitHub
+    </a>
+  </div>
 </div>
 </nav>
 
@@ -86,11 +95,11 @@ code { font-family: 'JetBrains Mono', monospace; }
       <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
       <span class="font-label text-[10px] uppercase tracking-widest font-bold">Fully Automated · $0 Cost</span>
     </div>
-    <h1 class="text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
+    <h1 class="text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]" data-i18n="hero-title">
       TestFlight Feedback<br/>
-      <span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">Auto-Fix Pipeline</span>
+      <span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent" data-i18n="hero-highlight">Auto-Fix Pipeline</span>
     </h1>
-    <p class="text-on-surface-variant text-lg max-w-xl leading-relaxed">
+    <p class="text-on-surface-variant text-lg max-w-xl leading-relaxed" data-i18n="hero-desc">
       Testers submit feedback in TestFlight. AI reads it, fixes the code, verifies the build, and ships a new version — all automatically, every 15 minutes.
     </p>
     <div class="flex flex-wrap gap-4">
@@ -382,19 +391,79 @@ code { font-family: 'JetBrains Mono', monospace; }
 
 <!-- Footer -->
 <footer class="bg-surface-container-low border-t border-outline-variant/10 w-full py-10">
-<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-  <div class="flex items-center gap-2">
-    <span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
-    <span class="font-bold text-on-surface">testflight-feedback-fix</span>
+<div class="max-w-7xl mx-auto px-8">
+  <div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+      <span class="font-bold text-on-surface">testflight-feedback-fix</span>
+    </div>
+    <div class="flex gap-6">
+      <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix">GitHub</a>
+      <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/docs/troubleshooting.md">Troubleshooting</a>
+      <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/LICENSE">MIT License</a>
+    </div>
   </div>
-  <div class="flex gap-6">
-    <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix">GitHub</a>
-    <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/docs/troubleshooting.md">Troubleshooting</a>
-    <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/LICENSE">MIT License</a>
+  <div class="border-t border-outline-variant/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+    <div class="text-sm text-secondary" data-i18n="footer-oss">
+      Open sourced by <a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">石竹株式会社 (ISHITAKE Inc.)</a>
+    </div>
+    <div class="flex items-center gap-4 text-xs text-on-surface-variant">
+      <a class="hover:text-primary transition-colors" href="https://ishitakes.com/">ishitakes.com</a>
+      <span class="text-outline-variant">·</span>
+      <a class="hover:text-primary transition-colors" href="https://github.com/nicejungle">GitHub @nicejungle</a>
+    </div>
   </div>
-  <div class="text-sm text-secondary">by <a class="text-primary hover:underline" href="https://github.com/nicejungle">nicejungle</a></div>
 </div>
 </footer>
+
+<!-- i18n -->
+<script>
+const i18n = {
+  en: {
+    'hero-title': 'TestFlight Feedback<br/><span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">Auto-Fix Pipeline</span>',
+    'hero-highlight': 'Auto-Fix Pipeline',
+    'hero-desc': 'Testers submit feedback in TestFlight. AI reads it, fixes the code, verifies the build, and ships a new version — all automatically, every 15 minutes.',
+    'footer-oss': 'Open sourced by <a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">ISHITAKE Inc. (石竹株式会社)</a>',
+  },
+  zh: {
+    'hero-title': 'TestFlight 反馈<br/><span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">自动修复流水线</span>',
+    'hero-highlight': '自动修复流水线',
+    'hero-desc': '测试者在 TestFlight 提交反馈，AI 自动读取、修复代码、验证构建并发布新版本 — 每 15 分钟自动执行，零人工介入。',
+    'footer-oss': '由 <a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">石竹株式会社</a> 开源',
+  },
+  ja: {
+    'hero-title': 'TestFlight フィードバック<br/><span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">自動修正パイプライン</span>',
+    'hero-highlight': '自動修正パイプライン',
+    'hero-desc': 'テスターがTestFlightでフィードバックを送信すると、AIがコードを読み、修正し、ビルドを検証して新バージョンを配信します — 15分ごとに全自動。',
+    'footer-oss': '<a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">石竹株式会社</a>によるオープンソースプロジェクト',
+  }
+};
+
+function setLang(lang) {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (i18n[lang] && i18n[lang][key]) {
+      el.innerHTML = i18n[lang][key];
+    }
+  });
+  // Update nav language indicator
+  document.querySelectorAll('nav a[onclick]').forEach(a => {
+    const l = a.getAttribute('onclick').match(/setLang\('(\w+)'\)/)?.[1];
+    a.classList.toggle('font-semibold', l === lang);
+    a.classList.toggle('text-primary', l === lang);
+  });
+  localStorage.setItem('lang', lang);
+}
+
+// Auto-detect language
+(function() {
+  const saved = localStorage.getItem('lang');
+  if (saved) { setLang(saved); return; }
+  const browserLang = navigator.language.toLowerCase();
+  if (browserLang.startsWith('zh')) setLang('zh');
+  else if (browserLang.startsWith('ja')) setLang('ja');
+})();
+</script>
 
 </body>
 </html>
