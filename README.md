@@ -177,6 +177,8 @@ const newItems = summary.combined
 ```
 testflight-feedback-fix/
 ├── README.md
+├── README.zh-CN.md             # 中文文档
+├── README.ja.md                # 日本語ドキュメント
 ├── workflows/
 │   ├── feedback-autofix.yml    # Feedback → fix → verify → deploy
 │   └── release.yml             # Build and upload to TestFlight
@@ -188,8 +190,10 @@ testflight-feedback-fix/
 │   └── package.json            # Node dependencies
 ├── setup/
 │   └── com.testflight-feedback-fix.poll.plist  # macOS timer
-└── lib/
-    └── app-store-connect.ts    # App Store Connect API client
+├── lib/
+│   └── app-store-connect.ts    # App Store Connect API client
+└── docs/
+    └── troubleshooting.md      # Common issues and fixes
 ```
 
 ## FAQ

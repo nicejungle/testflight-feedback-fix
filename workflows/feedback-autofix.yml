@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       feedback_id:
-        description: 'Feedback ID (optional)'
+        description: 'Feedback ID (optional, for webhook trigger)'
         required: false
 
 permissions:
@@ -61,7 +61,7 @@ jobs:
           3. Skip vague comments or feature requests
           4. Make minimal, targeted code changes
           5. Commit each fix: git commit -m 'fix: <description based on feedback>'
-          6. Do NOT push" \
+          6. Do NOT push — the workflow handles that" \
           --print --dangerously-skip-permissions 2>&1 | tail -100
 
       - name: Build verification
@@ -85,6 +85,7 @@ jobs:
           fi
 
           echo "Running tests..."
+          # UPDATE: Replace with your test target
           xcodebuild test -project YourApp.xcodeproj -scheme YourApp \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -only-testing:YourAppTests -quiet 2>&1 | tail -5
