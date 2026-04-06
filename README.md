@@ -1,3 +1,5 @@
+[English](README.md) | [中文](README.zh-CN.md) | [日本語](README.ja.md)
+
 # testflight-feedback-fix
 
 Automated pipeline: TestFlight feedback → AI fix → build verify → TestFlight deploy.
