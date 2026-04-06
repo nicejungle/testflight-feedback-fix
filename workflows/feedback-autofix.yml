@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       feedback_id:
-        description: 'Feedback ID (optional, for webhook trigger)'
+        description: 'Feedback ID (optional, for single-item fix)'
         required: false
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   check-and-fix:
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +49,7 @@ jobs:
         run: |
           FEEDBACK=$(cat /tmp/feedback.json)
 
+          > /tmp/claude-live.log
           claude -p "You are working on an iOS project.
 
           The following TestFlight feedback was just received:
@@ -62,7 +63,10 @@ jobs:
           4. Make minimal, targeted code changes
           5. Commit each fix: git commit -m 'fix: <description based on feedback>'
           6. Do NOT push — the workflow handles that" \
-          --print --dangerously-skip-permissions 2>&1 | tail -100
+          --print --dangerously-skip-permissions 2>&1 | while IFS= read -r line; do
+            echo "$line"
+            echo "$line" >> /tmp/claude-live.log
+          done
 
       - name: Build verification
         if: steps.feedback.outputs.count != '0'
@@ -73,30 +77,66 @@ jobs:
             exit 0
           fi
 
-          echo "Verifying build..."
-          # UPDATE: Replace with your project and scheme
-          xcodebuild build -project YourApp.xcodeproj -scheme YourApp \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -quiet 2>&1 | tail -5
+          MAX_RETRIES=3
+          for ATTEMPT in $(seq 1 $MAX_RETRIES); do
+            echo "=== Verify attempt $ATTEMPT/$MAX_RETRIES ==="
 
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "Build failed — reverting changes"
-            git reset --hard origin/main
-            exit 1
-          fi
+            echo "Building..."
+            set +e
+            # UPDATE: Replace with your project and scheme
+            BUILD_OUTPUT=$(xcodebuild build -project YourApp.xcodeproj -scheme YourApp \
+              -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -quiet 2>&1)
+            BUILD_EXIT=$?
+            set -e
+            echo "$BUILD_OUTPUT" | tail -3
 
-          echo "Running tests..."
-          # UPDATE: Replace with your test target
-          xcodebuild test -project YourApp.xcodeproj -scheme YourApp \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-            -only-testing:YourAppTests -quiet 2>&1 | tail -5
+            if [ $BUILD_EXIT -ne 0 ]; then
+              echo "Build failed"
+              if [ $ATTEMPT -lt $MAX_RETRIES ]; then
+                echo "$BUILD_OUTPUT" | tail -30 > /tmp/build-errors.txt
+                claude -p "Build failed. Fix these compilation errors and commit:
 
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "Tests failed — reverting changes"
-            git reset --hard origin/main
-            exit 1
-          fi
+          $(cat /tmp/build-errors.txt)
 
-          echo "Build and tests passed"
+          Only fix build errors. Commit: git commit -m 'fix: resolve build error'" \
+                --print --dangerously-skip-permissions 2>&1 | tail -50
+                continue
+              fi
+              echo "Build still failing after $MAX_RETRIES attempts — reverting"
+              git reset --hard origin/main
+              exit 1
+            fi
+
+            echo "Build passed — running tests..."
+            set +e
+            # UPDATE: Replace with your test target
+            TEST_OUTPUT=$(xcodebuild test -project YourApp.xcodeproj -scheme YourApp \
+              -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+              -only-testing:YourAppTests -quiet 2>&1)
+            TEST_EXIT=$?
+            set -e
+            echo "$TEST_OUTPUT" | tail -3
+
+            if [ $TEST_EXIT -ne 0 ]; then
+              echo "Tests failed"
+              if [ $ATTEMPT -lt $MAX_RETRIES ]; then
+                echo "$TEST_OUTPUT" | grep -E "failed|error:|FAIL" | tail -20 > /tmp/test-errors.txt
+                claude -p "Unit tests failed. Fix these test errors and commit:
+
+          $(cat /tmp/test-errors.txt)
+
+          Analyze failures and fix code or tests. Commit: git commit -m 'fix: resolve test failure'" \
+                --print --dangerously-skip-permissions 2>&1 | tail -50
+                continue
+              fi
+              echo "Tests still failing after $MAX_RETRIES attempts — reverting"
+              git reset --hard origin/main
+              exit 1
+            fi
+
+            echo "Build and tests passed on attempt $ATTEMPT"
+            break
+          done
 
       - name: Track processed feedback
         if: steps.feedback.outputs.count != '0'

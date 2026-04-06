@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TestFlight Feedback Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background: #0a0e14; color: #d9e6fd; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.animate-pulse-slow { animation: pulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-6xl mx-auto px-6 py-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-2xl font-bold">TestFlight Feedback Dashboard</h1>
+      <p class="text-sm text-gray-400 mt-1">CalorieCoach — 实时状态监控</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="last-refresh" class="text-xs text-gray-500"></span>
+      <button onclick="refreshAll()" class="px-3 py-1.5 bg-gray-700 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 transition">刷新</button>
+      <button onclick="triggerRun()" class="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-500 transition flex items-center gap-1">▶ 立即执行</button>
+      <button onclick="cancelAll()" class="px-3 py-1.5 bg-red-900/60 text-red-300 text-xs font-semibold rounded-lg hover:bg-red-800/60 transition flex items-center gap-1">■ 停止任务</button>
+    </div>
+  </div>
+
+  <!-- Status Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-[#121a25] rounded-xl p-5 border border-gray-800">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Runner 状态</div>
+      <div id="runner-status" class="text-lg font-bold">—</div>
+    </div>
+    <div class="bg-[#121a25] rounded-xl p-5 border border-gray-800">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">当前任务</div>
+      <div id="current-job" class="text-lg font-bold">—</div>
+    </div>
+    <div class="bg-[#121a25] rounded-xl p-5 border border-gray-800">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">已处理反馈</div>
+      <div id="processed-count" class="text-lg font-bold text-green-400">—</div>
+    </div>
+    <div class="bg-[#121a25] rounded-xl p-5 border border-gray-800">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">待处理反馈</div>
+      <div id="pending-count" class="text-lg font-bold text-yellow-400">—</div>
+      <div id="next-poll" class="text-[10px] text-gray-500 mt-1"></div>
+    </div>
+  </div>
+
+  <!-- Live Claude Output -->
+  <div id="live-section" class="bg-[#121a25] rounded-xl border border-gray-800 mb-8 hidden">
+    <div class="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse-slow"></span>
+        <h2 class="font-semibold">Claude Code 实时输出</h2>
+      </div>
+      <span id="live-run-id" class="text-xs text-gray-500 font-mono"></span>
+    </div>
+    <!-- Steps progress -->
+    <div id="live-steps" class="px-5 py-3 border-b border-gray-800/50 flex flex-wrap gap-3"></div>
+    <!-- Log output -->
+    <div id="live-log" class="px-5 py-4 font-mono text-xs leading-relaxed max-h-[400px] overflow-y-auto bg-black/20 text-gray-400"></div>
+  </div>
+
+  <!-- Two Column Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+    <!-- Recent Workflow Runs -->
+    <div class="bg-[#121a25] rounded-xl border border-gray-800">
+      <div class="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
+        <h2 class="font-semibold">任务执行记录</h2>
+        <span class="text-xs text-gray-500">最近 10 次</span>
+      </div>
+      <div id="runs-list" class="divide-y divide-gray-800/50">
+        <div class="px-5 py-4 text-sm text-gray-500">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Feedback Items -->
+    <div class="bg-[#121a25] rounded-xl border border-gray-800">
+      <div class="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
+        <h2 class="font-semibold">反馈列表</h2>
+        <div class="flex gap-2">
+          <button onclick="showTab('all')" id="tab-all" class="text-xs px-3 py-1 rounded-full bg-blue-600/20 text-blue-400 font-semibold">全部</button>
+          <button onclick="showTab('pending')" id="tab-pending" class="text-xs px-3 py-1 rounded-full bg-gray-700/30 text-gray-400">待处理</button>
+          <button onclick="showTab('done')" id="tab-done" class="text-xs px-3 py-1 rounded-full bg-gray-700/30 text-gray-400">已处理</button>
+        </div>
+      </div>
+      <div id="feedback-list" class="divide-y divide-gray-800/50 max-h-[600px] overflow-y-auto">
+        <div class="px-5 py-4 text-sm text-gray-500">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Fixes -->
+  <div class="bg-[#121a25] rounded-xl border border-gray-800">
+    <div class="px-5 py-4 border-b border-gray-800">
+      <h2 class="font-semibold">最近修复的提交</h2>
+    </div>
+    <div id="fixes-list" class="divide-y divide-gray-800/50">
+      <div class="px-5 py-4 text-sm text-gray-500">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const REPO = 'nicejungle/caloriecoach-ios';
+let allFeedback = [];
+let processedIds = [];
+let dismissedIds = [];
+let processingIds = [];
+let nextPollTime = null;
+let currentTab = 'all';
+
+async function fetchJSON(cmd) {
+  const res = await fetch(`/api?cmd=${encodeURIComponent(cmd)}`);
+  return res.json();
+}
+
+async function refreshAll() {
+  document.getElementById('last-refresh').textContent = '刷新中...';
+  await Promise.all([loadRunner(), loadRuns(), loadFeedback(), loadFixes(), loadLiveLog()]);
+  document.getElementById('last-refresh').textContent = `最后刷新: ${new Date().toLocaleTimeString()}`;
+}
+
+async function loadRunner() {
+  try {
+    const data = await fetchJSON('runner');
+    const el = document.getElementById('runner-status');
+    const job = document.getElementById('current-job');
+    if (data.status === 'online') {
+      el.innerHTML = `<span class="text-green-400">● 在线</span>${data.busy ? ' <span class="text-yellow-400 text-sm">(忙碌)</span>' : ''}`;
+    } else {
+      el.innerHTML = '<span class="text-red-400">● 离线</span>';
+    }
+    job.textContent = data.currentJob || '空闲';
+    if (data.busy) job.classList.add('text-yellow-400');
+    else job.classList.remove('text-yellow-400');
+  } catch { document.getElementById('runner-status').textContent = '获取失败'; }
+}
+
+async function loadRuns() {
+  try {
+    const runs = await fetchJSON('runs');
+    const el = document.getElementById('runs-list');
+    if (!runs.length) { el.innerHTML = '<div class="px-5 py-4 text-sm text-gray-500">暂无记录</div>'; return; }
+    el.innerHTML = runs.map(r => {
+      const icon = r.conclusion === 'success' ? '✓' : r.conclusion === 'failure' ? '✗' : r.status === 'in_progress' ? '◐' : '○';
+      const color = r.conclusion === 'success' ? 'text-green-400' : r.conclusion === 'failure' ? 'text-red-400' : r.status === 'in_progress' ? 'text-yellow-400 animate-pulse-slow' : 'text-gray-400';
+      const time = new Date(r.createdAt).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const duration = r.duration ? `${Math.floor(r.duration/60)}m${r.duration%60}s` : '—';
+      const cancelBtn = (r.status === 'in_progress' || r.status === 'queued') ? `<button onclick="fetch('/api?cmd=cancel&runId=${r.databaseId}').then(()=>setTimeout(refreshAll,2000))" class="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold hover:bg-red-900/60 transition">停止</button>` : '';
+      return `<div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02]">
+        <div class="flex items-center gap-3">
+          <span class="${color} font-mono text-lg">${icon}</span>
+          <div>
+            <div class="text-sm font-medium">${r.name}</div>
+            <div class="text-xs text-gray-500">${time}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          ${cancelBtn}
+          <span class="text-xs text-gray-500">${duration}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch { document.getElementById('runs-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>'; }
+}
+
+async function loadFeedback() {
+  try {
+    const data = await fetchJSON('feedback');
+    allFeedback = data.all || [];
+    processedIds = data.processed || [];
+    dismissedIds = data.dismissed || [];
+    processingIds = data.processing || [];
+    nextPollTime = data.nextPoll;
+    document.getElementById('processed-count').textContent = processedIds.length;
+    const pendingCount = allFeedback.filter(f => !processedIds.includes(f.id)).length;
+    document.getElementById('pending-count').textContent = pendingCount;
+    // Next poll countdown
+    const pollEl = document.getElementById('next-poll');
+    if (nextPollTime) {
+      const diff = Math.max(0, Math.round((new Date(nextPollTime) - Date.now()) / 1000));
+      if (diff > 0) pollEl.textContent = `下次轮询: ${Math.floor(diff/60)}分${diff%60}秒后`;
+      else pollEl.textContent = '轮询中...';
+    } else {
+      pollEl.textContent = '';
+    }
+    renderFeedback();
+  } catch {
+    document.getElementById('feedback-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>';
+  }
+}
+
+function renderFeedback() {
+  const el = document.getElementById('feedback-list');
+  let items = allFeedback;
+  if (currentTab === 'pending') items = items.filter(f => !processedIds.includes(f.id));
+  if (currentTab === 'done') items = items.filter(f => processedIds.includes(f.id));
+
+  if (!items.length) { el.innerHTML = '<div class="px-5 py-4 text-sm text-gray-500">暂无</div>'; return; }
+  el.innerHTML = items.map((f, i) => {
+    const done = processedIds.includes(f.id);
+    const isDismissed = dismissedIds.includes(f.id);
+    const isProcessing = processingIds.includes(f.id);
+    let badge;
+    if (isDismissed) {
+      badge = '<span class="px-2 py-0.5 rounded-full bg-gray-700/40 text-gray-500 text-[10px] font-bold">已忽略</span>';
+    } else if (isProcessing) {
+      badge = '<span class="px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-400 text-[10px] font-bold animate-pulse-slow">处理中</span>';
+    } else if (done) {
+      badge = '<span class="px-2 py-0.5 rounded-full bg-green-900/40 text-green-400 text-[10px] font-bold">已处理</span>';
+    } else {
+      badge = '<span class="px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-400 text-[10px] font-bold">待处理</span>';
+    }
+    const time = f.createdAt ? new Date(f.createdAt).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    const source = f.source === 'betaFeedbackScreenshot' ? '📸 截图' : f.source === 'betaFeedbackCrash' ? '💥 崩溃' : '📝 评论';
+    const screenshots = f.rawAttributes?.screenshots || [];
+    const hasImages = screenshots.length > 0;
+    const uid = 'fb-' + i;
+    const imgHtml = hasImages ? screenshots.map(s =>
+      `<img src="${s.url}" class="rounded-lg border border-gray-700 max-h-[400px] object-contain" loading="lazy"/>`
+    ).join('') : '';
+    const detailHtml = `<div class="text-xs text-gray-500 space-y-1 mt-2">
+      ${f.rawAttributes?.deviceModel ? `<span>📱 ${f.rawAttributes.deviceModel}</span>` : ''}
+      ${f.rawAttributes?.osVersion ? `<span class="ml-3">iOS ${f.rawAttributes.osVersion}</span>` : ''}
+      ${f.rawAttributes?.email ? `<span class="ml-3">✉️ ${f.rawAttributes.email}</span>` : ''}
+    </div>`;
+
+    const showActions = !done && !isDismissed && !isProcessing;
+    const fixBtn = showActions ? `<button onclick="event.stopPropagation(); fixOne('${f.id}')" class="px-2 py-0.5 rounded bg-blue-600/20 text-blue-400 text-[10px] font-bold hover:bg-blue-600/40 transition">修复此条</button>` : '';
+    const dismissBtn = showActions ? `<button onclick="event.stopPropagation(); dismissFeedback('${f.id}')" class="px-2 py-0.5 rounded bg-gray-700/40 text-gray-400 text-[10px] font-bold hover:bg-red-900/40 hover:text-red-400 transition">忽略</button>` : '';
+
+    return `<div class="px-5 py-3 hover:bg-white/[0.02] cursor-pointer" onclick="toggleDetail('${uid}')">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs">${source}</span>
+          ${badge}
+          ${hasImages ? '<span class="text-xs text-gray-500">🖼️</span>' : ''}
+          ${fixBtn}
+          ${dismissBtn}
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500">${time}</span>
+          <span class="text-xs text-gray-600 transition-transform" id="arrow-${uid}">▼</span>
+        </div>
+      </div>
+      <p class="text-sm text-gray-300 leading-relaxed">${f.summary || f.id}</p>
+      <div id="${uid}" class="hidden mt-3 space-y-3">
+        ${detailHtml}
+        ${imgHtml ? `<div class="flex flex-wrap gap-2 mt-2">${imgHtml}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showTab(tab) {
+  currentTab = tab;
+  ['all','pending','done'].forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    btn.className = t === tab
+      ? 'text-xs px-3 py-1 rounded-full bg-blue-600/20 text-blue-400 font-semibold'
+      : 'text-xs px-3 py-1 rounded-full bg-gray-700/30 text-gray-400';
+  });
+  renderFeedback();
+}
+
+async function loadFixes() {
+  try {
+    const fixes = await fetchJSON('fixes');
+    const el = document.getElementById('fixes-list');
+    if (!fixes.length) { el.innerHTML = '<div class="px-5 py-4 text-sm text-gray-500">暂无修复记录</div>'; return; }
+    el.innerHTML = fixes.map(f => {
+      const time = new Date(f.date).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `<div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02]">
+        <div class="flex items-center gap-3">
+          <span class="text-green-400">✓</span>
+          <div>
+            <div class="text-sm font-medium">${f.message}</div>
+            <div class="text-xs text-gray-500 font-mono">${f.sha.substring(0,7)}</div>
+          </div>
+        </div>
+        <span class="text-xs text-gray-500">${time}</span>
+      </div>`;
+    }).join('');
+  } catch { document.getElementById('fixes-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>'; }
+}
+
+async function loadLiveLog() {
+  try {
+    const data = await fetchJSON('livelog');
+    const section = document.getElementById('live-section');
+
+    if (!data.active) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    section.classList.remove('hidden');
+    document.getElementById('live-run-id').textContent = `Run #${data.runId}`;
+
+    // Render steps
+    const stepsEl = document.getElementById('live-steps');
+    stepsEl.innerHTML = (data.steps || []).map(s => {
+      const icon = s.status === 'completed' && s.conclusion === 'success' ? '✓'
+        : s.status === 'completed' && s.conclusion !== 'success' ? '✗'
+        : s.status === 'in_progress' ? '◐' : '○';
+      const color = s.status === 'completed' && s.conclusion === 'success' ? 'text-green-400'
+        : s.status === 'completed' ? 'text-red-400'
+        : s.status === 'in_progress' ? 'text-yellow-400' : 'text-gray-600';
+      const bg = s.status === 'in_progress' ? 'bg-yellow-900/20 border-yellow-800/30' : 'bg-transparent border-transparent';
+      return `<span class="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border ${bg}">
+        <span class="${color}">${icon}</span>
+        <span class="${s.status === 'in_progress' ? 'text-yellow-300' : 'text-gray-500'}">${s.name}</span>
+      </span>`;
+    }).join('');
+
+    // Render log
+    const logEl = document.getElementById('live-log');
+    logEl.innerHTML = (data.log || []).map(line => {
+      let cls = 'text-gray-400';
+      if (line.includes('error') || line.includes('Error') || line.includes('FAIL')) cls = 'text-red-400';
+      else if (line.includes('fix:') || line.includes('commit')) cls = 'text-green-400';
+      else if (line.includes('Claude') || line.includes('claude')) cls = 'text-blue-400';
+      return `<div class="${cls}">${line.replace(/</g,'&lt;')}</div>`;
+    }).join('');
+    logEl.scrollTop = logEl.scrollHeight;
+  } catch { }
+}
+
+async function triggerRun() {
+  if (!confirm('立即触发 Feedback Auto-Fix？')) return;
+  await fetchJSON('trigger');
+  setTimeout(refreshAll, 3000);
+}
+
+async function cancelAll() {
+  if (!confirm('停止所有正在运行的任务？')) return;
+  await fetchJSON('cancel');
+  setTimeout(refreshAll, 3000);
+}
+
+async function dismissFeedback(feedbackId) {
+  if (!confirm('忽略这条反馈？')) return;
+  // Instant UI update
+  dismissedIds.push(feedbackId);
+  if (!processedIds.includes(feedbackId)) processedIds.push(feedbackId);
+  renderFeedback();
+  document.getElementById('pending-count').textContent = allFeedback.filter(f => !processedIds.includes(f.id)).length;
+  // Then sync to server
+  await fetch(`/api?cmd=dismiss&id=${encodeURIComponent(feedbackId)}`);
+}
+
+async function fixOne(feedbackId) {
+  if (!confirm('针对这条反馈单独触发修复？')) return;
+  await fetch(`/api?cmd=fix-one&id=${encodeURIComponent(feedbackId)}`);
+  setTimeout(refreshAll, 3000);
+}
+
+function toggleDetail(uid) {
+  const el = document.getElementById(uid);
+  const arrow = document.getElementById('arrow-' + uid);
+  if (el.classList.contains('hidden')) {
+    el.classList.remove('hidden');
+    arrow.style.transform = 'rotate(180deg)';
+  } else {
+    el.classList.add('hidden');
+    arrow.style.transform = '';
+  }
+}
+
+// Auto-refresh: 10s when active job, 60s when idle
+let refreshInterval;
+async function smartRefresh() {
+  await refreshAll();
+  const isActive = !document.getElementById('live-section').classList.contains('hidden');
+  const newDelay = isActive ? 10000 : 60000;
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(smartRefresh, newDelay);
+}
+smartRefresh();
+</script>
+</body>
+</html>

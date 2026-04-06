@@ -187,6 +187,9 @@ testflight-feedback-fix/
 ├── scripts/
 │   ├── setup-runner.sh         # One-click Mac setup
 │   ├── fetch-feedback.ts       # App Store Connect feedback fetcher
+│   ├── fetch-all-feedback.ts   # Fetch all feedback for dashboard
+│   ├── dashboard-server.js     # Real-time monitoring dashboard
+│   ├── dashboard.html          # Dashboard UI
 │   └── package.json            # Node dependencies
 ├── setup/
 │   └── com.testflight-feedback-fix.poll.plist  # macOS timer
@@ -195,6 +198,26 @@ testflight-feedback-fix/
 └── docs/
     └── troubleshooting.md      # Common issues and fixes
 ```
+
+## Dashboard
+
+Real-time monitoring web UI accessible via Tailscale or local network.
+
+```bash
+# Start on your Mac (port 8090)
+GITHUB_REPO=owner/repo ASC_KEY_ID=xxx ASC_ISSUER_ID=xxx ASC_APP_ID=xxx \
+  node scripts/dashboard-server.js
+```
+
+Access at `http://your-mac-ip:8090`
+
+Features:
+- **Runner status** — online/offline/busy
+- **Live Claude output** — real-time stream of AI fixing code
+- **Feedback list** — all/pending/processed/dismissed tabs with screenshot preview
+- **Action buttons** — trigger run, stop task, fix single feedback, dismiss
+- **Next poll countdown** — time until next automatic check
+- **Auto-refresh** — 10s when active, 60s when idle
 
 ## FAQ
 
