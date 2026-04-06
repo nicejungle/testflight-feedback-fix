@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>testflight-feedback-fix — Automated TestFlight Feedback → AI Fix → Deploy</title>
+<meta name="description" content="Automated pipeline: TestFlight feedback → Claude Code fix → build verify → TestFlight deploy. Zero cost with self-hosted runner."/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-dim": "#0a0e14",
+        "surface": "#0a0e14",
+        "on-primary-container": "#bcd0ff",
+        "primary-dim": "#96b9ff",
+        "surface-container-lowest": "#000000",
+        "background": "#0a0e14",
+        "on-surface": "#d9e6fd",
+        "on-surface-variant": "#9facc1",
+        "surface-container": "#121a25",
+        "surface-container-high": "#16202e",
+        "surface-container-low": "#0e141c",
+        "surface-container-highest": "#1a2637",
+        "tertiary-dim": "#75ed7d",
+        "tertiary": "#c7ffc2",
+        "outline": "#6a768a",
+        "outline-variant": "#3c495b",
+        "primary": "#acc7ff",
+        "primary-container": "#004492",
+        "on-primary": "#003e85",
+        "secondary": "#979eaa",
+        "error": "#ee7d77",
+        "surface-bright": "#1e2d41",
+        "surface-variant": "#1a2637",
+      },
+      borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
+      fontFamily: { headline: ["Manrope"], body: ["Inter"], label: ["Inter"], mono: ["JetBrains Mono"] },
+    },
+  },
+}
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+body { font-family: 'Inter', sans-serif; background-color: #0a0e14; color: #d9e6fd; }
+h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+.flow-line { background: linear-gradient(90deg, transparent, #96b9ff, transparent); background-size: 200% 100%; animation: flow 3s linear infinite; }
+@keyframes flow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 15px rgba(117, 237, 125, 0.15); } 50% { box-shadow: 0 0 25px rgba(117, 237, 125, 0.3); } }
+.pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+code { font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+
+<!-- Navigation -->
+<nav class="bg-[#0a0e14]/80 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-outline-variant/10">
+<div class="flex justify-between items-center max-w-7xl mx-auto px-8 h-16">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+    <span class="text-xl font-black text-on-surface tracking-tighter">testflight-feedback-fix</span>
+  </div>
+  <div class="hidden md:flex items-center gap-8 font-['Manrope'] font-semibold tracking-tight text-sm">
+    <a class="text-secondary hover:text-on-surface transition-colors" href="#how-it-works">How It Works</a>
+    <a class="text-secondary hover:text-on-surface transition-colors" href="#setup">Setup</a>
+    <a class="text-secondary hover:text-on-surface transition-colors" href="#guides">Guides</a>
+    <a class="text-secondary hover:text-on-surface transition-colors" href="#faq">FAQ</a>
+  </div>
+  <a class="bg-primary text-on-primary px-4 py-2 rounded-xl font-bold text-sm hover:scale-95 transition-transform flex items-center gap-2" href="https://github.com/nicejungle/testflight-feedback-fix">
+    <span class="material-symbols-outlined text-sm">code</span> GitHub
+  </a>
+</div>
+</nav>
+
+<main class="pt-28">
+
+<!-- Hero -->
+<section class="max-w-7xl mx-auto px-8 mb-24">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+  <div class="space-y-6">
+    <div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container rounded-full text-tertiary-dim border border-tertiary-dim/20">
+      <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
+      <span class="font-label text-[10px] uppercase tracking-widest font-bold">Fully Automated · $0 Cost</span>
+    </div>
+    <h1 class="text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
+      TestFlight Feedback<br/>
+      <span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">Auto-Fix Pipeline</span>
+    </h1>
+    <p class="text-on-surface-variant text-lg max-w-xl leading-relaxed">
+      Testers submit feedback in TestFlight. AI reads it, fixes the code, verifies the build, and ships a new version — all automatically, every 15 minutes.
+    </p>
+    <div class="flex flex-wrap gap-4">
+      <a class="px-6 py-3 bg-primary text-on-primary font-bold rounded-xl flex items-center gap-2 hover:scale-95 transition-transform" href="#setup">
+        Get Started <span class="material-symbols-outlined">arrow_forward</span>
+      </a>
+      <a class="px-6 py-3 bg-surface-container-high text-on-surface font-semibold rounded-xl border border-outline-variant/15 hover:border-primary/30 transition-colors flex items-center gap-2" href="https://github.com/nicejungle/testflight-feedback-fix">
+        <span class="material-symbols-outlined text-sm">star</span> Star on GitHub
+      </a>
+    </div>
+    <div class="flex items-center gap-6 pt-2 text-sm text-on-surface-variant">
+      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> Claude Code</span>
+      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> Self-hosted</span>
+      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> MIT License</span>
+    </div>
+  </div>
+
+  <!-- Terminal Preview -->
+  <div class="relative group">
+    <div class="absolute -inset-1 bg-gradient-to-r from-primary-container to-tertiary-dim/20 rounded-2xl blur opacity-20 group-hover:opacity-35 transition duration-1000"></div>
+    <div class="relative bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant/15">
+      <div class="flex items-center gap-2 px-4 py-3 bg-surface-container-highest/50 border-b border-outline-variant/10">
+        <div class="w-3 h-3 rounded-full bg-error/60"></div>
+        <div class="w-3 h-3 rounded-full bg-[#f5c542]/60"></div>
+        <div class="w-3 h-3 rounded-full bg-tertiary-dim/60"></div>
+        <span class="ml-2 text-xs text-on-surface-variant font-mono">feedback-autofix.yml</span>
+      </div>
+      <div class="p-6 font-mono text-sm leading-relaxed space-y-1 text-on-surface-variant">
+        <p><span class="text-tertiary-dim">✓</span> <span class="text-on-surface">Fetch feedback</span> <span class="text-primary-dim">— Found 3 new items</span></p>
+        <p><span class="text-tertiary-dim">✓</span> <span class="text-on-surface">Claude auto-fix</span> <span class="text-primary-dim">— 3 commits</span></p>
+        <p class="pl-4 text-xs">fix: card height inconsistency when value is zero</p>
+        <p class="pl-4 text-xs">fix: remove redundant calorie display area</p>
+        <p class="pl-4 text-xs">fix: default collapse assumptions section</p>
+        <p><span class="text-tertiary-dim">✓</span> <span class="text-on-surface">Build verification</span> <span class="text-primary-dim">— BUILD SUCCEEDED</span></p>
+        <p><span class="text-tertiary-dim">✓</span> <span class="text-on-surface">Unit tests</span> <span class="text-primary-dim">— 268 tests passed</span></p>
+        <p><span class="text-tertiary-dim">✓</span> <span class="text-on-surface">Push and deploy</span> <span class="text-primary-dim">— TestFlight build triggered</span></p>
+        <p class="pt-2 text-tertiary">Done in 4m 12s — $0 cost</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Flow Chart -->
+<section class="max-w-7xl mx-auto px-8 mb-24" id="how-it-works">
+<div class="bg-surface-container-low border border-outline-variant/10 rounded-2xl p-8 lg:p-12 overflow-hidden relative">
+  <div class="absolute top-0 right-0 p-8 opacity-5">
+    <span class="material-symbols-outlined text-[120px]">account_tree</span>
+  </div>
+  <div class="text-center mb-12">
+    <h2 class="text-3xl font-bold tracking-tight mb-3">How It Works</h2>
+    <p class="text-on-surface-variant max-w-2xl mx-auto">End-to-end automation from tester feedback to new TestFlight build. No human intervention required.</p>
+  </div>
+
+  <div class="relative flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-4">
+    <!-- Step 1 -->
+    <div class="z-10 flex flex-col items-center text-center group">
+      <div class="w-16 h-16 rounded-xl bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center mb-4 group-hover:border-primary/50 transition-colors">
+        <span class="material-symbols-outlined text-primary">feedback</span>
+      </div>
+      <p class="text-[10px] uppercase tracking-widest font-bold text-primary mb-1">Step 01</p>
+      <h4 class="font-bold text-sm">Tester Feedback</h4>
+      <p class="text-xs text-on-surface-variant max-w-[130px] mt-2 leading-tight">Screenshots & crash reports from TestFlight</p>
+    </div>
+    <div class="hidden lg:block flex-1 h-px bg-outline-variant/30 relative"><div class="absolute inset-0 flow-line h-px"></div></div>
+
+    <!-- Step 2 -->
+    <div class="z-10 flex flex-col items-center text-center group">
+      <div class="w-16 h-16 rounded-xl bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center mb-4 group-hover:border-primary/50 transition-colors">
+        <span class="material-symbols-outlined text-primary">download</span>
+      </div>
+      <p class="text-[10px] uppercase tracking-widest font-bold text-primary mb-1">Step 02</p>
+      <h4 class="font-bold text-sm">Fetch & Filter</h4>
+      <p class="text-xs text-on-surface-variant max-w-[130px] mt-2 leading-tight">Poll App Store Connect API every 15 min</p>
+    </div>
+    <div class="hidden lg:block flex-1 h-px bg-outline-variant/30 relative"><div class="absolute inset-0 flow-line h-px"></div></div>
+
+    <!-- Step 3 -->
+    <div class="z-10 flex flex-col items-center text-center group">
+      <div class="w-16 h-16 rounded-xl bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center mb-4 group-hover:border-primary/50 transition-colors">
+        <span class="material-symbols-outlined text-primary">smart_toy</span>
+      </div>
+      <p class="text-[10px] uppercase tracking-widest font-bold text-primary mb-1">Step 03</p>
+      <h4 class="font-bold text-sm">AI Fix</h4>
+      <p class="text-xs text-on-surface-variant max-w-[130px] mt-2 leading-tight">Claude Code reads codebase & commits fixes</p>
+    </div>
+    <div class="hidden lg:block flex-1 h-px bg-outline-variant/30 relative"><div class="absolute inset-0 flow-line h-px"></div></div>
+
+    <!-- Step 4 -->
+    <div class="z-10 flex flex-col items-center text-center group">
+      <div class="w-16 h-16 rounded-xl bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center mb-4 group-hover:border-primary/50 transition-colors">
+        <span class="material-symbols-outlined text-primary">verified_user</span>
+      </div>
+      <p class="text-[10px] uppercase tracking-widest font-bold text-primary mb-1">Step 04</p>
+      <h4 class="font-bold text-sm">Build & Test</h4>
+      <p class="text-xs text-on-surface-variant max-w-[130px] mt-2 leading-tight">xcodebuild + unit tests. Reverts if fail</p>
+    </div>
+    <div class="hidden lg:block flex-1 h-px bg-outline-variant/30 relative"><div class="absolute inset-0 flow-line h-px"></div></div>
+
+    <!-- Step 5 -->
+    <div class="z-10 flex flex-col items-center text-center group">
+      <div class="w-20 h-20 rounded-2xl bg-tertiary-dim/10 border border-tertiary-dim/30 flex items-center justify-center mb-4 group-hover:bg-tertiary-dim/20 transition-all pulse-glow relative">
+        <span class="material-symbols-outlined text-tertiary-dim text-3xl">flight_takeoff</span>
+      </div>
+      <p class="text-[10px] uppercase tracking-widest font-bold text-tertiary-dim mb-1">Deploy</p>
+      <h4 class="font-bold text-sm">TestFlight</h4>
+      <p class="text-xs text-on-surface-variant max-w-[130px] mt-2 leading-tight">Auto-push to release branch → new build</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Setup Section -->
+<section class="max-w-7xl mx-auto px-8 mb-24" id="setup">
+<div class="text-center mb-12">
+  <h2 class="text-3xl font-bold tracking-tight mb-3">Quick Setup</h2>
+  <p class="text-on-surface-variant">One command to deploy with Claude Code or Codex</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+  <!-- Claude Code -->
+  <div class="bg-surface-container p-8 rounded-xl border border-outline-variant/10">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="material-symbols-outlined text-primary">terminal</span>
+      <h3 class="text-lg font-bold">Claude Code</h3>
+    </div>
+    <div class="bg-surface-container-lowest p-4 rounded-lg font-mono text-xs border-l-2 border-primary overflow-x-auto leading-relaxed">
+      <code class="text-primary-dim">claude -p</code> <code>"Install testflight-feedback-fix from github.com/nicejungle/testflight-feedback-fix into this project"</code>
+    </div>
+  </div>
+
+  <!-- Codex -->
+  <div class="bg-surface-container p-8 rounded-xl border border-outline-variant/10">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="material-symbols-outlined text-primary">code</span>
+      <h3 class="text-lg font-bold">Codex</h3>
+    </div>
+    <div class="bg-surface-container-lowest p-4 rounded-lg font-mono text-xs border-l-2 border-primary overflow-x-auto leading-relaxed">
+      <code class="text-primary-dim">codex</code> <code>"Install testflight-feedback-fix from github.com/nicejungle/testflight-feedback-fix into this project"</code>
+    </div>
+  </div>
+</div>
+
+<!-- Manual Setup -->
+<div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+  <h3 class="text-lg font-bold mb-6">Manual Setup</h3>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-6 h-6 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">1</span>
+        <span class="font-semibold text-sm">Install Runner</span>
+      </div>
+      <div class="bg-surface-container-lowest p-3 rounded-lg font-mono text-xs">
+        <code>git clone github.com/nicejungle/<br/>  testflight-feedback-fix<br/>cd testflight-feedback-fix<br/>./scripts/setup-runner.sh</code>
+      </div>
+    </div>
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-6 h-6 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">2</span>
+        <span class="font-semibold text-sm">Copy to Project</span>
+      </div>
+      <div class="bg-surface-container-lowest p-3 rounded-lg font-mono text-xs">
+        <code>cp workflows/* .github/workflows/<br/>cp -r lib/ scripts/ .<br/>cp fastlane/Fastfile fastlane/</code>
+      </div>
+    </div>
+    <div>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-6 h-6 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">3</span>
+        <span class="font-semibold text-sm">Add Secrets</span>
+      </div>
+      <div class="bg-surface-container-lowest p-3 rounded-lg font-mono text-xs">
+        <code>gh secret set ASC_KEY_ID<br/>gh secret set ASC_ISSUER_ID<br/>gh secret set ASC_KEY_CONTENT<br/>gh secret set ASC_APP_ID<br/>gh secret set KEYCHAIN_PASSWORD</code>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Features + Language Guides -->
+<section class="max-w-7xl mx-auto px-8 pb-24 space-y-6" id="guides">
+
+<!-- Stats Ribbon -->
+<div class="flex flex-wrap items-center gap-6 bg-surface-container-low py-4 px-8 rounded-xl border border-outline-variant/15">
+  <div class="flex items-center gap-2">
+    <span class="material-symbols-outlined text-primary-dim">attach_money</span>
+    <span class="text-sm font-semibold">Cost: $0</span>
+  </div>
+  <div class="flex items-center gap-2 border-l border-outline-variant/30 pl-6">
+    <span class="material-symbols-outlined text-primary-dim">timer</span>
+    <span class="text-sm font-semibold">Poll: 15 min</span>
+  </div>
+  <div class="flex items-center gap-2 border-l border-outline-variant/30 pl-6">
+    <span class="material-symbols-outlined text-primary-dim">build</span>
+    <span class="text-sm font-semibold">Build + Test Gate</span>
+  </div>
+  <div class="flex items-center gap-2 border-l border-outline-variant/30 pl-6">
+    <span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">verified</span>
+    <span class="text-sm font-semibold text-tertiary-dim">MIT Licensed</span>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+  <!-- Features -->
+  <div class="bg-surface-container-high p-8 rounded-xl border border-outline-variant/10" id="features">
+    <h2 class="text-xl font-bold mb-6">Key Features</h2>
+    <ul class="space-y-4">
+      <li class="flex gap-3"><span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-sm text-on-surface-variant">AI-powered code fixes via Claude Code</span></li>
+      <li class="flex gap-3"><span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-sm text-on-surface-variant">Build + test verification before deploy</span></li>
+      <li class="flex gap-3"><span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-sm text-on-surface-variant">Auto-revert on build failure</span></li>
+      <li class="flex gap-3"><span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-sm text-on-surface-variant">Self-hosted runner, zero cloud costs</span></li>
+      <li class="flex gap-3"><span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-sm text-on-surface-variant">Dedup — never processes same feedback twice</span></li>
+      <li class="flex gap-3"><span class="material-symbols-outlined text-tertiary-dim" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-sm text-on-surface-variant">One-click setup script for Mac</span></li>
+    </ul>
+  </div>
+
+  <!-- Chinese -->
+  <div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="text-primary-dim material-symbols-outlined">translate</span>
+      <h2 class="text-xl font-bold tracking-tight">简体中文</h2>
+    </div>
+    <p class="text-on-surface-variant text-sm mb-4 leading-relaxed">
+      全自动化流水线：TestFlight 反馈 → AI 修复 → 构建验证 → 自动发版。使用 Claude Code 订阅额度，零额外费用。
+    </p>
+    <div class="bg-surface-container-lowest p-3 rounded-lg font-mono text-xs mb-4">
+      <code>git clone github.com/nicejungle/<br/>  testflight-feedback-fix<br/>./scripts/setup-runner.sh</code>
+    </div>
+    <a class="text-primary text-sm font-semibold hover:underline flex items-center gap-1" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/README.zh-CN.md">
+      完整文档 <span class="material-symbols-outlined text-xs">open_in_new</span>
+    </a>
+  </div>
+
+  <!-- Japanese -->
+  <div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="text-primary-dim material-symbols-outlined">translate</span>
+      <h2 class="text-xl font-bold tracking-tight">日本語</h2>
+    </div>
+    <p class="text-on-surface-variant text-sm mb-4 leading-relaxed">
+      完全自動パイプライン：TestFlightフィードバック → AI修正 → ビルド検証 → 自動デプロイ。Claude Codeサブスクリプションを使用、追加費用ゼロ。
+    </p>
+    <div class="bg-surface-container-lowest p-3 rounded-lg font-mono text-xs mb-4">
+      <code>git clone github.com/nicejungle/<br/>  testflight-feedback-fix<br/>./scripts/setup-runner.sh</code>
+    </div>
+    <a class="text-primary text-sm font-semibold hover:underline flex items-center gap-1" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/README.ja.md">
+      ドキュメント <span class="material-symbols-outlined text-xs">open_in_new</span>
+    </a>
+  </div>
+</div>
+</section>
+
+<!-- FAQ -->
+<section class="max-w-3xl mx-auto px-8 pb-24" id="faq">
+<h2 class="text-3xl font-bold tracking-tight mb-8 text-center">FAQ</h2>
+<div class="space-y-4">
+  <details class="bg-surface-container rounded-xl border border-outline-variant/10 overflow-hidden group">
+    <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center hover:text-primary transition-colors">
+      How much does this cost?
+      <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+    </summary>
+    <div class="px-6 pb-4 text-sm text-on-surface-variant">$0 extra. Claude Code runs on your existing Max plan subscription. The Mac Mini is yours. GitHub Actions is free for self-hosted runners.</div>
+  </details>
+  <details class="bg-surface-container rounded-xl border border-outline-variant/10 overflow-hidden group">
+    <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center hover:text-primary transition-colors">
+      What if Claude introduces a bug?
+      <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+    </summary>
+    <div class="px-6 pb-4 text-sm text-on-surface-variant">The pipeline runs xcodebuild + unit tests after every fix. If either fails, all changes are automatically reverted. Nothing broken ever gets pushed.</div>
+  </details>
+  <details class="bg-surface-container rounded-xl border border-outline-variant/10 overflow-hidden group">
+    <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center hover:text-primary transition-colors">
+      What if there's no new feedback?
+      <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+    </summary>
+    <div class="px-6 pb-4 text-sm text-on-surface-variant">The workflow checks, finds 0 new items, and exits in ~3 seconds. Claude is never called. No resources consumed.</div>
+  </details>
+  <details class="bg-surface-container rounded-xl border border-outline-variant/10 overflow-hidden group">
+    <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center hover:text-primary transition-colors">
+      Can I use this without Claude Code?
+      <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+    </summary>
+    <div class="px-6 pb-4 text-sm text-on-surface-variant">Yes — remove the "Claude auto-fix" step and use it as a manual feedback-to-deploy pipeline. Or swap in any AI tool that has a CLI.</div>
+  </details>
+</div>
+</section>
+
+</main>
+
+<!-- Footer -->
+<footer class="bg-surface-container-low border-t border-outline-variant/10 w-full py-10">
+<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+  <div class="flex items-center gap-2">
+    <span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+    <span class="font-bold text-on-surface">testflight-feedback-fix</span>
+  </div>
+  <div class="flex gap-6">
+    <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix">GitHub</a>
+    <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/docs/troubleshooting.md">Troubleshooting</a>
+    <a class="text-sm text-secondary hover:text-primary transition-colors" href="https://github.com/nicejungle/testflight-feedback-fix/blob/main/LICENSE">MIT License</a>
+  </div>
+  <div class="text-sm text-secondary">by <a class="text-primary hover:underline" href="https://github.com/nicejungle">nicejungle</a></div>
+</div>
+</footer>
+
+</body>
+</html>
