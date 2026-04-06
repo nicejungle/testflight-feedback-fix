@@ -212,12 +212,16 @@ GITHUB_REPO=owner/repo ASC_KEY_ID=xxx ASC_ISSUER_ID=xxx ASC_APP_ID=xxx \
 Access at `http://your-mac-ip:8090`
 
 Features:
-- **Runner status** — online/offline/busy
-- **Live Claude output** — real-time stream of AI fixing code
-- **Feedback list** — all/pending/processed/dismissed tabs with screenshot preview
-- **Action buttons** — trigger run, stop task, fix single feedback, dismiss
+- **Runner status** — online/offline/busy with current job name
+- **Live Claude output** — real-time stream of AI thinking, tool calls, and code changes via `stream-json`
+- **Feedback list** — all/pending/processed/dismissed tabs with screenshot preview on click
+- **Action buttons** — trigger run, stop task, fix single feedback, dismiss/ignore
+- **Click runs to view logs** — expand any completed run to see full execution history
+- **Click commits to view diff** — expand any fix commit to see code changes with syntax highlighting
+- **Status badges** — pending (yellow), processing (blue pulse), processed (green), dismissed (gray)
 - **Next poll countdown** — time until next automatic check
-- **Auto-refresh** — 10s when active, 60s when idle
+- **Auto-refresh** — 10s when active job, 60s when idle
+- **Adaptive fetching** — starts with 20 items, doubles if all are new (up to 200)
 
 ## FAQ
 

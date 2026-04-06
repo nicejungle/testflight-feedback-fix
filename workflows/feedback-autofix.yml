@@ -4,7 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       feedback_id:
-        description: 'Feedback ID (optional, for single-item fix)'
+        description: 'Feedback ID from Apple webhook'
+        required: false
+      feedback_type:
+        description: 'Feedback type (screenshot/crash)'
         required: false
 
 permissions:
@@ -39,7 +42,7 @@ jobs:
         run: |
           cd scripts
           npm install --silent 2>/dev/null || true
-          npx tsx fetch-feedback.ts 2>&1
+          npx tsx scripts/fetch-feedback.ts 2>&1
 
           FEEDBACK_COUNT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/feedback.json','utf8')).length)" 2>/dev/null || echo "0")
           echo "count=$FEEDBACK_COUNT" >> $GITHUB_OUTPUT
@@ -49,7 +52,8 @@ jobs:
         run: |
           FEEDBACK=$(cat /tmp/feedback.json)
 
-          > /tmp/claude-live.log
+          : > /tmp/claude-live.log
+
           claude -p "You are working on an iOS project.
 
           The following TestFlight feedback was just received:
@@ -61,80 +65,118 @@ jobs:
           2. Only fix clearly actionable bugs or UX issues
           3. Skip vague comments or feature requests
           4. Make minimal, targeted code changes
-          5. Commit each fix: git commit -m 'fix: <description based on feedback>'
+          5. Commit each fix: git commit -m 'fix: <description>'
           6. Do NOT push — the workflow handles that" \
-          --print --dangerously-skip-permissions 2>&1 | while IFS= read -r line; do
-            echo "$line"
-            echo "$line" >> /tmp/claude-live.log
-          done
+          --output-format stream-json --print --verbose --dangerously-skip-permissions 2>/dev/null \
+          | node -e "
+            const readline = require('readline');
+            const fs = require('fs');
+            const rl = readline.createInterface({ input: process.stdin });
+            const log = fs.createWriteStream('/tmp/claude-live.log', { flags: 'a' });
+            rl.on('line', (line) => {
+              try {
+                const obj = JSON.parse(line);
+                if (obj.type === 'stream_event') {
+                  const ev = obj.event;
+                  if (ev.type === 'content_block_delta' && ev.delta?.text) {
+                    log.write(ev.delta.text);
+                  }
+                  if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
+                    log.write('\n🔧 ' + ev.content_block.name + '\n');
+                  }
+                  if (ev.type === 'content_block_stop') {
+                    log.write('\n');
+                  }
+                }
+                if (obj.type === 'assistant') {
+                  const texts = (obj.message?.content || []).filter(c => c.type === 'text').map(c => c.text);
+                  if (texts.length) log.write(texts.join('\n') + '\n---\n');
+                }
+              } catch {}
+            });
+          "
 
       - name: Build verification
         if: steps.feedback.outputs.count != '0'
         run: |
+          LOG=/tmp/claude-live.log
+          log() { echo "$1"; echo "$1" >> $LOG; }
+
           COMMIT_COUNT=$(git log origin/main..HEAD --oneline | wc -l | tr -d ' ')
           if [ "$COMMIT_COUNT" -le 1 ]; then
-            echo "No code fixes, skipping build check"
+            log "No code fixes, skipping build check"
             exit 0
           fi
 
+          PROJ="YourApp.xcodeproj"
+          SCHEME="CalorieCoach"
+          DEST="platform=iOS Simulator,name=iPhone 17 Pro"
+          FAILED_TESTS=""
+
           MAX_RETRIES=3
           for ATTEMPT in $(seq 1 $MAX_RETRIES); do
-            echo "=== Verify attempt $ATTEMPT/$MAX_RETRIES ==="
+            log "=== Verify attempt $ATTEMPT/$MAX_RETRIES ==="
 
-            echo "Building..."
+            # Step 1: Build
+            log "🔨 Building..."
             set +e
-            # UPDATE: Replace with your project and scheme
-            BUILD_OUTPUT=$(xcodebuild build -project YourApp.xcodeproj -scheme YourApp \
-              -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -quiet 2>&1)
+            BUILD_OUTPUT=$(xcodebuild build -project $PROJ -scheme $SCHEME -destination "$DEST" -quiet 2>&1)
             BUILD_EXIT=$?
             set -e
-            echo "$BUILD_OUTPUT" | tail -3
 
             if [ $BUILD_EXIT -ne 0 ]; then
-              echo "Build failed"
+              log "❌ Build failed"
+              echo "$BUILD_OUTPUT" | tail -5 | while IFS= read -r l; do log "  $l"; done
               if [ $ATTEMPT -lt $MAX_RETRIES ]; then
+                log "🤖 Asking Claude to fix build errors..."
                 echo "$BUILD_OUTPUT" | tail -30 > /tmp/build-errors.txt
-                claude -p "Build failed. Fix these compilation errors and commit:
-
+                claude -p "Build failed. Fix these compilation errors and commit：
           $(cat /tmp/build-errors.txt)
-
           Only fix build errors. Commit: git commit -m 'fix: resolve build error'" \
-                --print --dangerously-skip-permissions 2>&1 | tail -50
+                --print --dangerously-skip-permissions 2>&1 | while IFS= read -r l; do echo "$l"; echo "$l" >> $LOG; done
                 continue
               fi
-              echo "Build still failing after $MAX_RETRIES attempts — reverting"
+              log "💀 Build still failing — reverting"
               git reset --hard origin/main
               exit 1
             fi
+            log "✅ Build passed"
 
-            echo "Build passed — running tests..."
+            # Step 2: Run tests (only failed ones on retry)
+            if [ -n "$FAILED_TESTS" ]; then
+              log "🧪 Re-running failed tests only..."
+              TEST_FILTER="$FAILED_TESTS"
+            else
+              log "🧪 Running all unit tests..."
+              TEST_FILTER="-only-testing:YourAppTests"
+            fi
+
             set +e
-            # UPDATE: Replace with your test target
-            TEST_OUTPUT=$(xcodebuild test -project YourApp.xcodeproj -scheme YourApp \
-              -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-              -only-testing:YourAppTests -quiet 2>&1)
+            TEST_OUTPUT=$(xcodebuild test -project $PROJ -scheme $SCHEME -destination "$DEST" $TEST_FILTER -quiet 2>&1)
             TEST_EXIT=$?
             set -e
-            echo "$TEST_OUTPUT" | tail -3
 
             if [ $TEST_EXIT -ne 0 ]; then
-              echo "Tests failed"
+              FAILED_TESTS=$(echo "$TEST_OUTPUT" | grep -E "Test Case.*failed" | sed 's/.*\[//' | sed 's/\].*//' | awk '{print "-only-testing:YourAppTests/" $0}' | tr '\n' ' ')
+              FAIL_COUNT=$(echo "$TEST_OUTPUT" | grep -c "failed" || true)
+              log "❌ Tests failed ($FAIL_COUNT failures)"
+              echo "$TEST_OUTPUT" | grep -E "failed|error:" | tail -10 | while IFS= read -r l; do log "  $l"; done
+
               if [ $ATTEMPT -lt $MAX_RETRIES ]; then
-                echo "$TEST_OUTPUT" | grep -E "failed|error:|FAIL" | tail -20 > /tmp/test-errors.txt
-                claude -p "Unit tests failed. Fix these test errors and commit:
-
+                log "🤖 Asking Claude to fix test failures..."
+                echo "$TEST_OUTPUT" | grep -E "failed|error:|FAIL" | tail -15 > /tmp/test-errors.txt
+                claude -p "Unit tests failed. Fix these errors and commit：
           $(cat /tmp/test-errors.txt)
-
-          Analyze failures and fix code or tests. Commit: git commit -m 'fix: resolve test failure'" \
-                --print --dangerously-skip-permissions 2>&1 | tail -50
+          Analyze and fix. Commit: git commit -m 'fix: resolve test failure'" \
+                --print --dangerously-skip-permissions 2>&1 | while IFS= read -r l; do echo "$l"; echo "$l" >> $LOG; done
                 continue
               fi
-              echo "Tests still failing after $MAX_RETRIES attempts — reverting"
+              log "💀 Tests still failing — reverting"
               git reset --hard origin/main
               exit 1
             fi
 
-            echo "Build and tests passed on attempt $ATTEMPT"
+            log "✅ All checks passed (attempt $ATTEMPT)"
             break
           done
 
@@ -158,14 +200,14 @@ jobs:
         run: |
           COMMIT_COUNT=$(git log origin/main..HEAD --oneline | wc -l | tr -d ' ')
           if [ "$COMMIT_COUNT" -gt 0 ]; then
-            echo "Pushing $COMMIT_COUNT commits..."
+            echo "Pushing $COMMIT_COUNT commits to main and release..."
             git pull origin main --rebase
             git push origin main
             git fetch origin release
             git checkout release
             git merge main --no-edit -X theirs || (git checkout --theirs . && git add -A && git commit --no-edit)
             git push origin release
-            echo "Done — release build will trigger automatically"
+            echo "Done — TestFlight build will trigger automatically"
           else
             echo "No fixes were made"
           fi

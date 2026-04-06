@@ -152,19 +152,25 @@ async function loadRuns() {
       const color = r.conclusion === 'success' ? 'text-green-400' : r.conclusion === 'failure' ? 'text-red-400' : r.status === 'in_progress' ? 'text-yellow-400 animate-pulse-slow' : 'text-gray-400';
       const time = new Date(r.createdAt).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
       const duration = r.duration ? `${Math.floor(r.duration/60)}m${r.duration%60}s` : '—';
-      const cancelBtn = (r.status === 'in_progress' || r.status === 'queued') ? `<button onclick="fetch('/api?cmd=cancel&runId=${r.databaseId}').then(()=>setTimeout(refreshAll,2000))" class="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold hover:bg-red-900/60 transition">停止</button>` : '';
-      return `<div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02]">
-        <div class="flex items-center gap-3">
-          <span class="${color} font-mono text-lg">${icon}</span>
-          <div>
-            <div class="text-sm font-medium">${r.name}</div>
-            <div class="text-xs text-gray-500">${time}</div>
+      const cancelBtn = (r.status === 'in_progress' || r.status === 'queued') ? `<button onclick="event.stopPropagation(); fetch('/api?cmd=cancel&runId=${r.databaseId}').then(()=>setTimeout(refreshAll,2000))" class="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold hover:bg-red-900/60 transition">停止</button>` : '';
+      const clickable = r.conclusion ? `cursor-pointer` : '';
+      const logId = 'runlog-' + r.databaseId;
+      return `<div>
+        <div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02] ${clickable}" onclick="${r.conclusion ? `toggleRunLog('${r.databaseId}', '${logId}')` : ''}">
+          <div class="flex items-center gap-3">
+            <span class="${color} font-mono text-lg">${icon}</span>
+            <div>
+              <div class="text-sm font-medium">${r.name}</div>
+              <div class="text-xs text-gray-500">${time}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            ${cancelBtn}
+            <span class="text-xs text-gray-500">${duration}</span>
+            ${r.conclusion ? '<span class="text-xs text-gray-600">▼</span>' : ''}
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          ${cancelBtn}
-          <span class="text-xs text-gray-500">${duration}</span>
-        </div>
+        <div id="${logId}" class="hidden bg-black/20 mx-3 mb-2 rounded-lg max-h-[300px] overflow-y-auto"></div>
       </div>`;
     }).join('');
   } catch { document.getElementById('runs-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>'; }
@@ -276,15 +282,22 @@ async function loadFixes() {
     if (!fixes.length) { el.innerHTML = '<div class="px-5 py-4 text-sm text-gray-500">暂无修复记录</div>'; return; }
     el.innerHTML = fixes.map(f => {
       const time = new Date(f.date).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      return `<div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02]">
-        <div class="flex items-center gap-3">
-          <span class="text-green-400">✓</span>
-          <div>
-            <div class="text-sm font-medium">${f.message}</div>
-            <div class="text-xs text-gray-500 font-mono">${f.sha.substring(0,7)}</div>
+      const diffId = 'diff-' + f.sha.substring(0,7);
+      return `<div>
+        <div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02] cursor-pointer" onclick="toggleCommitDiff('${f.sha}', '${diffId}')">
+          <div class="flex items-center gap-3">
+            <span class="text-green-400">✓</span>
+            <div>
+              <div class="text-sm font-medium">${f.message}</div>
+              <div class="text-xs text-gray-500 font-mono">${f.sha.substring(0,7)}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500">${time}</span>
+            <span class="text-xs text-gray-600">▼</span>
           </div>
         </div>
-        <span class="text-xs text-gray-500">${time}</span>
+        <div id="${diffId}" class="hidden bg-black/20 mx-3 mb-2 rounded-lg max-h-[400px] overflow-y-auto"></div>
       </div>`;
     }).join('');
   } catch { document.getElementById('fixes-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>'; }
@@ -359,6 +372,60 @@ async function fixOne(feedbackId) {
   if (!confirm('针对这条反馈单独触发修复？')) return;
   await fetch(`/api?cmd=fix-one&id=${encodeURIComponent(feedbackId)}`);
   setTimeout(refreshAll, 3000);
+}
+
+async function toggleCommitDiff(sha, diffId) {
+  const el = document.getElementById(diffId);
+  if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
+  el.innerHTML = '<div class="p-3 text-xs text-gray-500">加载变更...</div>';
+  el.classList.remove('hidden');
+  try {
+    const data = await fetch(`/api?cmd=commitdiff&sha=${sha}`).then(r => r.json());
+    if (data.diff && data.diff.length > 0) {
+      el.innerHTML = '<div class="p-3 font-mono text-xs leading-relaxed">' +
+        (data.summary ? `<div class="text-gray-300 mb-2 pb-2 border-b border-gray-700">${data.summary.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>` : '') +
+        data.diff.map(l => {
+          const escaped = l.replace(/</g,'&lt;');
+          if (l.startsWith('+') && !l.startsWith('+++')) return `<div class="text-green-400">${escaped}</div>`;
+          if (l.startsWith('-') && !l.startsWith('---')) return `<div class="text-red-400">${escaped}</div>`;
+          if (l.startsWith('@@')) return `<div class="text-blue-400">${escaped}</div>`;
+          if (l.startsWith('diff ')) return `<div class="text-yellow-400 mt-2">${escaped}</div>`;
+          return `<div class="text-gray-500">${escaped}</div>`;
+        }).join('') +
+        '</div>';
+    } else {
+      el.innerHTML = '<div class="p-3 text-xs text-gray-500">无变更记录</div>';
+    }
+  } catch { el.innerHTML = '<div class="p-3 text-xs text-red-400">加载失败</div>'; }
+}
+
+async function toggleRunLog(runId, logId) {
+  const el = document.getElementById(logId);
+  if (!el.classList.contains('hidden')) {
+    el.classList.add('hidden');
+    return;
+  }
+  el.innerHTML = '<div class="p-3 text-xs text-gray-500">加载日志...</div>';
+  el.classList.remove('hidden');
+  try {
+    const data = await fetch(`/api?cmd=runlog&runId=${runId}`).then(r => r.json());
+    if (data.log && data.log.length > 0) {
+      el.innerHTML = '<div class="p-3 font-mono text-xs leading-relaxed text-gray-400">' +
+        data.log.map(l => {
+          let cls = 'text-gray-400';
+          if (l.includes('error') || l.includes('FAIL') || l.includes('failed')) cls = 'text-red-400';
+          else if (l.includes('fix:') || l.includes('passed') || l.includes('success')) cls = 'text-green-400';
+          else if (l.includes('Claude') || l.includes('claude') || l.includes('🔧') || l.includes('🤖')) cls = 'text-blue-400';
+          else if (l.includes('===') || l.includes('---')) cls = 'text-yellow-400';
+          return `<div class="${cls}">${l.replace(/</g,'&lt;')}</div>`;
+        }).join('') +
+        '</div>';
+    } else {
+      el.innerHTML = '<div class="p-3 text-xs text-gray-500">日志暂不可用（任务可能还在运行中）</div>';
+    }
+  } catch {
+    el.innerHTML = '<div class="p-3 text-xs text-red-400">加载失败</div>';
+  }
 }
 
 function toggleDetail(uid) {

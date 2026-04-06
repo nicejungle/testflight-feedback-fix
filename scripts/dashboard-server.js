@@ -5,7 +5,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const PORT = process.env.PORT || 8090;
-const REPO = process.env.GITHUB_REPO || 'OWNER/REPO'; // UPDATE: your GitHub repo
+const REPO = 'OWNER/REPO';
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 function exec(cmd) {
@@ -49,11 +49,15 @@ function getFeedback() {
   try { processed = JSON.parse(fs.readFileSync(processedFile, 'utf8')); } catch {}
 
   // Fetch all feedback from API
-  const keyPath = path.join(process.env.HOME, '.appstoreconnect/private_keys/AuthKey_${process.env.ASC_KEY_ID || 'YOUR_KEY_ID'}.p8');
+  // UPDATE: Set these via environment variables
+  const keyId = process.env.ASC_KEY_ID || 'YOUR_KEY_ID';
+  const keyPath = path.join(process.env.HOME, `.appstoreconnect/private_keys/AuthKey_${keyId}.p8`);
   let privateKey = '';
   try { privateKey = fs.readFileSync(keyPath, 'utf8'); } catch {}
 
-  const allRaw = exec(`cd ${PROJECT_ROOT} && ASC_KEY_ID=${process.env.ASC_KEY_ID || 'YOUR_KEY_ID'} ASC_ISSUER_ID=${process.env.ASC_ISSUER_ID || 'YOUR_ISSUER_ID'} ASC_PRIVATE_KEY="${privateKey.replace(/"/g, '\\"')}" ASC_APP_ID=${process.env.ASC_APP_ID || 'YOUR_APP_ID'} npx tsx scripts/fetch-all-feedback.ts 2>/dev/null`);
+  const issuerId = process.env.ASC_ISSUER_ID || 'YOUR_ISSUER_ID';
+  const appId = process.env.ASC_APP_ID || 'YOUR_APP_ID';
+  const allRaw = exec(`cd ${PROJECT_ROOT} && ASC_KEY_ID=${keyId} ASC_ISSUER_ID=${issuerId} ASC_PRIVATE_KEY="${privateKey.replace(/"/g, '\\"')}" ASC_APP_ID=${appId} npx tsx scripts/fetch-all-feedback.ts 2>/dev/null`);
 
   let all = [];
   try { all = JSON.parse(allRaw); } catch {}
@@ -102,14 +106,36 @@ function getLiveLog() {
     return { status, conclusion, name: nameParts.join(' ') };
   });
 
-  // Read Claude's live output from local file
+  // Show real-time progress: git log of new commits + current diff
   let logLines = [];
+
+  // New commits made by Claude
+  const commitsRaw = exec(`git -C ${PROJECT_ROOT} log --oneline origin/main..HEAD 2>/dev/null`);
+  if (commitsRaw) {
+    commitsRaw.split('\n').filter(Boolean).forEach(c => {
+      logLines.push('✅ ' + c);
+    });
+  }
+
+  // Current uncommitted changes (Claude is still working)
+  const diffRaw = exec(`git -C ${PROJECT_ROOT} diff --stat HEAD 2>/dev/null`);
+  if (diffRaw) {
+    logLines.push('');
+    logLines.push('📝 Uncommitted changes:');
+    diffRaw.split('\n').filter(Boolean).slice(0, 20).forEach(l => {
+      logLines.push('  ' + l.trim());
+    });
+  }
+
+  // Read Claude's streaming output
   try {
     const raw = fs.readFileSync('/tmp/claude-live.log', 'utf8');
-    logLines = raw.split('\n')
-      .map(l => l.replace(/\x1b\[[0-9;]*m/g, '').trim())
-      .filter(l => l.length > 0)
-      .slice(-50);
+    if (raw.trim().length > 0) {
+      logLines.push('');
+      logLines.push('🤖 Claude:');
+      const lines = raw.split('\n').filter(l => l.trim().length > 0).slice(-40);
+      logLines.push(...lines);
+    }
   } catch {}
 
   return { active: true, runId, steps, log: logLines };
@@ -130,6 +156,31 @@ const server = http.createServer((req, res) => {
       case 'feedback': data = getFeedback(); break;
       case 'fixes': data = getFixes(); break;
       case 'livelog': data = getLiveLog(); break;
+      case 'commitdiff': {
+        const sha = url.searchParams.get('sha');
+        if (sha) {
+          const diffRaw = exec(`git -C ${PROJECT_ROOT} show ${sha} --stat --format='%s%n%b' 2>/dev/null`);
+          const patchRaw = exec(`git -C ${PROJECT_ROOT} diff ${sha}~1..${sha} 2>/dev/null`);
+          const lines = patchRaw.split('\n').slice(0, 200);
+          data = { sha, summary: diffRaw.split('\n').slice(0, 5).join('\n'), diff: lines };
+        } else {
+          data = { error: 'missing sha' };
+        }
+        break;
+      }
+      case 'runlog': {
+        const runId = url.searchParams.get('runId');
+        if (runId) {
+          const logRaw = exec(`gh run view ${runId} --repo ${REPO} --log 2>/dev/null | tail -100`);
+          const lines = logRaw.split('\n')
+            .map(l => l.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').replace(/^[^\t]*\t[^\t]*\t/, '').trim())
+            .filter(l => l.length > 0 && !l.startsWith('##'));
+          data = { runId, log: lines.slice(-80) };
+        } else {
+          data = { error: 'missing runId' };
+        }
+        break;
+      }
       case 'cancel': {
         const runId = url.searchParams.get('runId');
         if (runId) {
