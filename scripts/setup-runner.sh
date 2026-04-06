@@ -55,10 +55,15 @@ security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN
 # 6. Allow passwordless xcode-select
 echo "$KEYCHAIN_PWD" | sudo -S sh -c "echo '$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/xcode-select' > /etc/sudoers.d/xcode-select && chmod 0440 /etc/sudoers.d/xcode-select"
 
-# 7. Setup polling timer
-echo "Setting up 15-minute polling timer..."
+# 7. Setup smart polling timer (skips if job already running)
+echo "Setting up 15-minute smart polling timer..."
+SCRIPT_DIR="$HOME/.testflight-feedback-fix"
+mkdir -p "$SCRIPT_DIR"
+sed "s|OWNER/REPO|${REPO}|g" "$(dirname "$0")/../setup/feedback-check.sh" > "$SCRIPT_DIR/feedback-check.sh"
+chmod +x "$SCRIPT_DIR/feedback-check.sh"
+
 PLIST=~/Library/LaunchAgents/com.testflight-feedback-fix.poll.plist
-sed "s|OWNER/REPO|${REPO}|g" "$(dirname "$0")/../setup/com.testflight-feedback-fix.poll.plist" > "$PLIST"
+sed "s|INSTALL_DIR|${SCRIPT_DIR}|g;s|OWNER/REPO|${REPO}|g" "$(dirname "$0")/../setup/com.testflight-feedback-fix.poll.plist" > "$PLIST"
 launchctl load "$PLIST"
 
 echo ""

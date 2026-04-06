@@ -6,14 +6,8 @@
     <string>com.testflight-feedback-fix.poll</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/bin/gh</string>
-        <string>workflow</string>
-        <string>run</string>
-        <string>Feedback Auto-Fix</string>
-        <string>--ref</string>
-        <string>main</string>
-        <string>--repo</string>
-        <string>OWNER/REPO</string>
+        <string>/bin/bash</string>
+        <string>INSTALL_DIR/feedback-check.sh</string>
     </array>
     <key>StartInterval</key>
     <integer>900</integer>

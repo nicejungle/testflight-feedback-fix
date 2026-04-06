@@ -6,7 +6,7 @@
 <title>testflight-feedback-fix — Automated TestFlight Feedback → AI Fix → Deploy</title>
 <meta name="description" content="Automated pipeline: TestFlight feedback → Claude Code fix → build verify → TestFlight deploy. Zero cost with self-hosted runner."/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script>
 tailwind.config = {
@@ -39,7 +39,7 @@ tailwind.config = {
         "surface-variant": "#1a2637",
       },
       borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
-      fontFamily: { headline: ["Manrope"], body: ["Inter"], label: ["Inter"], mono: ["JetBrains Mono"] },
+      fontFamily: { headline: ["Manrope", "Noto Sans SC", "Noto Sans JP", "sans-serif"], body: ["Inter", "Noto Sans SC", "Noto Sans JP", "sans-serif"], label: ["Inter"], mono: ["JetBrains Mono"] },
     },
   },
 }
@@ -95,9 +95,9 @@ code { font-family: 'JetBrains Mono', monospace; }
       <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
       <span class="font-label text-[10px] uppercase tracking-widest font-bold">Fully Automated · $0 Cost</span>
     </div>
-    <h1 class="text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]" data-i18n="hero-title">
-      TestFlight Feedback<br/>
-      <span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent" data-i18n="hero-highlight">Auto-Fix Pipeline</span>
+    <h1 class="text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
+      <span data-i18n="hero-line1">TestFlight Feedback</span><br/>
+      <span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent" data-i18n="hero-line2">Auto-Fix Pipeline</span>
     </h1>
     <p class="text-on-surface-variant text-lg max-w-xl leading-relaxed" data-i18n="hero-desc">
       Testers submit feedback in TestFlight. AI reads it, fixes the code, verifies the build, and ships a new version — all automatically, every 15 minutes.
@@ -111,7 +111,7 @@ code { font-family: 'JetBrains Mono', monospace; }
       </a>
     </div>
     <div class="flex items-center gap-6 pt-2 text-sm text-on-surface-variant">
-      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> Claude Code</span>
+      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> Claude Code (any plan)</span>
       <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> Self-hosted</span>
       <span class="flex items-center gap-1"><span class="material-symbols-outlined text-tertiary-dim text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span> MIT License</span>
     </div>
@@ -361,7 +361,7 @@ code { font-family: 'JetBrains Mono', monospace; }
       How much does this cost?
       <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
     </summary>
-    <div class="px-6 pb-4 text-sm text-on-surface-variant">$0 extra. Claude Code runs on your existing Max plan subscription. The Mac Mini is yours. GitHub Actions is free for self-hosted runners.</div>
+    <div class="px-6 pb-4 text-sm text-on-surface-variant">$0 extra. Claude Code runs on your existing subscription (any paid plan). The Mac Mini is yours. GitHub Actions is free for self-hosted runners.</div>
   </details>
   <details class="bg-surface-container rounded-xl border border-outline-variant/10 overflow-hidden group">
     <summary class="px-6 py-4 cursor-pointer font-semibold flex justify-between items-center hover:text-primary transition-colors">
@@ -420,20 +420,20 @@ code { font-family: 'JetBrains Mono', monospace; }
 <script>
 const i18n = {
   en: {
-    'hero-title': 'TestFlight Feedback<br/><span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">Auto-Fix Pipeline</span>',
-    'hero-highlight': 'Auto-Fix Pipeline',
+    'hero-line1': 'TestFlight Feedback',
+    'hero-line2': 'Auto-Fix Pipeline',
     'hero-desc': 'Testers submit feedback in TestFlight. AI reads it, fixes the code, verifies the build, and ships a new version — all automatically, every 15 minutes.',
     'footer-oss': 'Open sourced by <a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">ISHITAKE Inc. (石竹株式会社)</a>',
   },
   zh: {
-    'hero-title': 'TestFlight 反馈<br/><span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">自动修复流水线</span>',
-    'hero-highlight': '自动修复流水线',
+    'hero-line1': 'TestFlight 反馈',
+    'hero-line2': '自动修复流水线',
     'hero-desc': '测试者在 TestFlight 提交反馈，AI 自动读取、修复代码、验证构建并发布新版本 — 每 15 分钟自动执行，零人工介入。',
     'footer-oss': '由 <a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">石竹株式会社</a> 开源',
   },
   ja: {
-    'hero-title': 'TestFlight フィードバック<br/><span class="bg-gradient-to-r from-primary to-tertiary-dim bg-clip-text text-transparent">自動修正パイプライン</span>',
-    'hero-highlight': '自動修正パイプライン',
+    'hero-line1': 'TestFlight フィードバック',
+    'hero-line2': '自動修正パイプライン',
     'hero-desc': 'テスターがTestFlightでフィードバックを送信すると、AIがコードを読み、修正し、ビルドを検証して新バージョンを配信します — 15分ごとに全自動。',
     'footer-oss': '<a class="text-primary hover:underline font-semibold" href="https://ishitakes.com/">石竹株式会社</a>によるオープンソースプロジェクト',
   }

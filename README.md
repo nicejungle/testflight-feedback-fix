@@ -23,7 +23,7 @@ Tester gets updated build
 ## Prerequisites
 
 - Mac (Mac Mini recommended, always-on)
-- [Claude Code](https://claude.ai/code) with active subscription (Max plan)
+- [Claude Code](https://claude.ai/code) with active subscription (any paid plan)
 - Apple Developer Account (paid)
 - GitHub repository for your iOS project
 - App Store Connect API Key
