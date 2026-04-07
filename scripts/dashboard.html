@@ -72,7 +72,11 @@ body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background: #0a0e14; co
     <div class="bg-[#121a25] rounded-xl border border-gray-800">
       <div class="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
         <h2 class="font-semibold">任务执行记录</h2>
-        <span class="text-xs text-gray-500">最近 10 次</span>
+        <div class="flex gap-2">
+          <button onclick="showRunTab('all')" id="run-tab-all" class="text-xs px-3 py-1 rounded-full bg-blue-600/20 text-blue-400 font-semibold">全部</button>
+          <button onclick="showRunTab('active')" id="run-tab-active" class="text-xs px-3 py-1 rounded-full bg-gray-700/30 text-gray-400">有处理</button>
+          <button onclick="showRunTab('idle')" id="run-tab-idle" class="text-xs px-3 py-1 rounded-full bg-gray-700/30 text-gray-400">无任务</button>
+        </div>
       </div>
       <div id="runs-list" class="divide-y divide-gray-800/50">
         <div class="px-5 py-4 text-sm text-gray-500">加载中...</div>
@@ -91,6 +95,56 @@ body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background: #0a0e14; co
       </div>
       <div id="feedback-list" class="divide-y divide-gray-800/50 max-h-[600px] overflow-y-auto">
         <div class="px-5 py-4 text-sm text-gray-500">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Build Settings -->
+  <div class="bg-[#121a25] rounded-xl border border-gray-800 mb-8">
+    <div class="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
+      <h2 class="font-semibold">构建验证设置</h2>
+      <span class="text-xs text-gray-500">变更后下次轮询生效</span>
+    </div>
+    <div class="px-5 py-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-[#0e141c] rounded-lg p-4 border border-gray-800/50">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs text-gray-400">编译模式</span>
+          <span id="setting-build" class="text-xs text-green-400 font-bold">增量构建</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="setSetting('build','incremental')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-green-900/30 text-green-400 border border-green-800/30">增量 ~5s</button>
+          <button onclick="setSetting('build','clean')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-gray-800/50 text-gray-500 border border-gray-700/30">全量 ~30s</button>
+        </div>
+      </div>
+      <div class="bg-[#0e141c] rounded-lg p-4 border border-gray-800/50">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs text-gray-400">测试范围</span>
+          <span id="setting-test" class="text-xs text-green-400 font-bold">智能选择</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="setSetting('test','smart')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-green-900/30 text-green-400 border border-green-800/30">相关 ~10s</button>
+          <button onclick="setSetting('test','all')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-gray-800/50 text-gray-500 border border-gray-700/30">全部 ~2m</button>
+        </div>
+      </div>
+      <div class="bg-[#0e141c] rounded-lg p-4 border border-gray-800/50">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs text-gray-400">View 改动</span>
+          <span id="setting-view" class="text-xs text-green-400 font-bold">跳过测试</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="setSetting('view','skip')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-green-900/30 text-green-400 border border-green-800/30">跳过</button>
+          <button onclick="setSetting('view','test')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-gray-800/50 text-gray-500 border border-gray-700/30">也测试</button>
+        </div>
+      </div>
+      <div class="bg-[#0e141c] rounded-lg p-4 border border-gray-800/50">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs text-gray-400">失败重试</span>
+          <span id="setting-retry" class="text-xs text-green-400 font-bold">Sonnet 1次</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="setSetting('retry','sonnet1')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-green-900/30 text-green-400 border border-green-800/30">Sonnet×1</button>
+          <button onclick="setSetting('retry','opus3')" class="flex-1 px-2 py-1 rounded text-[10px] font-bold bg-gray-800/50 text-gray-500 border border-gray-700/30">Opus×3</button>
+        </div>
       </div>
     </div>
   </div>
@@ -114,6 +168,8 @@ let dismissedIds = [];
 let processingIds = [];
 let nextPollTime = null;
 let currentTab = 'all';
+let allRuns = [];
+let currentRunTab = 'all';
 
 async function fetchJSON(cmd) {
   const res = await fetch(`/api?cmd=${encodeURIComponent(cmd)}`);
@@ -144,36 +200,65 @@ async function loadRunner() {
 
 async function loadRuns() {
   try {
-    const runs = await fetchJSON('runs');
-    const el = document.getElementById('runs-list');
-    if (!runs.length) { el.innerHTML = '<div class="px-5 py-4 text-sm text-gray-500">暂无记录</div>'; return; }
-    el.innerHTML = runs.map(r => {
-      const icon = r.conclusion === 'success' ? '✓' : r.conclusion === 'failure' ? '✗' : r.status === 'in_progress' ? '◐' : '○';
-      const color = r.conclusion === 'success' ? 'text-green-400' : r.conclusion === 'failure' ? 'text-red-400' : r.status === 'in_progress' ? 'text-yellow-400 animate-pulse-slow' : 'text-gray-400';
-      const time = new Date(r.createdAt).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      const duration = r.duration ? `${Math.floor(r.duration/60)}m${r.duration%60}s` : '—';
-      const cancelBtn = (r.status === 'in_progress' || r.status === 'queued') ? `<button onclick="event.stopPropagation(); fetch('/api?cmd=cancel&runId=${r.databaseId}').then(()=>setTimeout(refreshAll,2000))" class="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold hover:bg-red-900/60 transition">停止</button>` : '';
-      const clickable = r.conclusion ? `cursor-pointer` : '';
-      const logId = 'runlog-' + r.databaseId;
-      return `<div>
-        <div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02] ${clickable}" onclick="${r.conclusion ? `toggleRunLog('${r.databaseId}', '${logId}')` : ''}">
-          <div class="flex items-center gap-3">
-            <span class="${color} font-mono text-lg">${icon}</span>
-            <div>
-              <div class="text-sm font-medium">${r.name}</div>
-              <div class="text-xs text-gray-500">${time}</div>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            ${cancelBtn}
-            <span class="text-xs text-gray-500">${duration}</span>
-            ${r.conclusion ? '<span class="text-xs text-gray-600">▼</span>' : ''}
+    allRuns = await fetchJSON('runs');
+    renderRuns();
+  } catch { document.getElementById('runs-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>'; }
+}
+
+function isActiveRun(r) {
+  // Runs that actually processed feedback (not just "No new feedback" quick exits)
+  return r.status === 'in_progress' || r.status === 'queued'
+    || r.conclusion === 'failure'
+    || r.name.startsWith('🚀')
+    || (r.conclusion === 'success' && r.duration && r.duration > 60);
+}
+
+function renderRuns() {
+  const el = document.getElementById('runs-list');
+  let runs = allRuns;
+  if (currentRunTab === 'active') runs = runs.filter(r => isActiveRun(r));
+  if (currentRunTab === 'idle') runs = runs.filter(r => !isActiveRun(r));
+
+  if (!runs.length) { el.innerHTML = '<div class="px-5 py-4 text-sm text-gray-500">暂无记录</div>'; return; }
+  el.innerHTML = runs.map(r => {
+    const icon = r.conclusion === 'success' ? '✓' : r.conclusion === 'failure' ? '✗' : r.status === 'in_progress' ? '◐' : r.status === 'queued' ? '○' : r.conclusion === 'cancelled' ? '⊘' : '?';
+    const color = r.conclusion === 'success' ? 'text-green-400' : r.conclusion === 'failure' ? 'text-red-400' : r.status === 'in_progress' ? 'text-yellow-400 animate-pulse-slow' : r.status === 'queued' ? 'text-gray-400' : 'text-gray-600';
+    const time = new Date(r.createdAt).toLocaleString('zh-CN', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const duration = r.duration ? `${Math.floor(r.duration/60)}m${r.duration%60}s` : '—';
+    const isIdle = !isActiveRun(r);
+    const tag = isIdle ? '<span class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 text-[9px]">无任务</span>' : '';
+    const cancelBtn = (r.status === 'in_progress' || r.status === 'queued') ? `<button onclick="event.stopPropagation(); fetch('/api?cmd=cancel&runId=${r.databaseId}').then(()=>setTimeout(refreshAll,2000))" class="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold hover:bg-red-900/60 transition">停止</button>` : '';
+    const clickable = r.conclusion ? 'cursor-pointer' : '';
+    const logId = 'runlog-' + r.databaseId;
+    return `<div>
+      <div class="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02] ${clickable}" onclick="${r.conclusion ? `toggleRunLog('${r.databaseId}', '${logId}')` : ''}">
+        <div class="flex items-center gap-3">
+          <span class="${color} font-mono text-lg">${icon}</span>
+          <div>
+            <div class="text-sm font-medium flex items-center gap-2">${r.name} ${tag}</div>
+            <div class="text-xs text-gray-500">${time}</div>
           </div>
         </div>
-        <div id="${logId}" class="hidden bg-black/20 mx-3 mb-2 rounded-lg max-h-[300px] overflow-y-auto"></div>
-      </div>`;
-    }).join('');
-  } catch { document.getElementById('runs-list').innerHTML = '<div class="px-5 py-4 text-sm text-red-400">获取失败</div>'; }
+        <div class="flex items-center gap-2">
+          ${cancelBtn}
+          <span class="text-xs text-gray-500">${duration}</span>
+          ${r.conclusion ? '<span class="text-xs text-gray-600">▼</span>' : ''}
+        </div>
+      </div>
+      <div id="${logId}" class="hidden bg-black/20 mx-3 mb-2 rounded-lg max-h-[300px] overflow-y-auto"></div>
+    </div>`;
+  }).join('');
+}
+
+function showRunTab(tab) {
+  currentRunTab = tab;
+  ['all','active','idle'].forEach(t => {
+    const btn = document.getElementById('run-tab-' + t);
+    btn.className = t === tab
+      ? 'text-xs px-3 py-1 rounded-full bg-blue-600/20 text-blue-400 font-semibold'
+      : 'text-xs px-3 py-1 rounded-full bg-gray-700/30 text-gray-400';
+  });
+  renderRuns();
 }
 
 async function loadFeedback() {
@@ -427,6 +512,44 @@ async function toggleRunLog(runId, logId) {
     el.innerHTML = '<div class="p-3 text-xs text-red-400">加载失败</div>';
   }
 }
+
+// Build settings
+const buildSettings = JSON.parse(localStorage.getItem('buildSettings') || '{"build":"incremental","test":"smart","view":"skip","retry":"sonnet1"}');
+
+function setSetting(key, value) {
+  buildSettings[key] = value;
+  localStorage.setItem('buildSettings', JSON.stringify(buildSettings));
+  // Update server config
+  fetch(`/api?cmd=settings&key=${key}&value=${value}`);
+  renderSettings();
+}
+
+function renderSettings() {
+  const labels = {
+    build: { incremental: '增量构建', clean: '全量构建' },
+    test: { smart: '智能选择', all: '全部测试' },
+    view: { skip: '跳过测试', test: '也测试' },
+    retry: { sonnet1: 'Sonnet 1次', opus3: 'Opus 3次' }
+  };
+  Object.keys(labels).forEach(key => {
+    const el = document.getElementById('setting-' + key);
+    if (el) {
+      el.textContent = labels[key][buildSettings[key]] || buildSettings[key];
+      el.className = 'text-xs font-bold ' + (buildSettings[key] === Object.keys(labels[key])[0] ? 'text-green-400' : 'text-yellow-400');
+    }
+    // Update button styles
+    const parent = el?.closest('.bg-\\[\\#0e141c\\]');
+    if (parent) {
+      parent.querySelectorAll('button').forEach(btn => {
+        const isActive = btn.getAttribute('onclick')?.includes(`'${buildSettings[key]}'`);
+        btn.className = isActive
+          ? 'flex-1 px-2 py-1 rounded text-[10px] font-bold bg-green-900/30 text-green-400 border border-green-800/30'
+          : 'flex-1 px-2 py-1 rounded text-[10px] font-bold bg-gray-800/50 text-gray-500 border border-gray-700/30';
+      });
+    }
+  });
+}
+setTimeout(renderSettings, 100);
 
 function toggleDetail(uid) {
   const el = document.getElementById(uid);

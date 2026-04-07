@@ -5,8 +5,14 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const PORT = process.env.PORT || 8090;
-const REPO = 'OWNER/REPO';
-const PROJECT_ROOT = path.resolve(__dirname, '..');
+const REPO = 'nicejungle/caloriecoach-ios';
+const PROJECT_ROOT = process.env.DASHBOARD_REPO || path.join(process.env.HOME, 'dashboard-repo');
+
+// Install deps and auto-pull every 60 seconds
+try { execSync(`cd ${PROJECT_ROOT}/apps/api && npm install --silent 2>/dev/null`, { timeout: 30000 }); } catch {}
+setInterval(() => {
+  try { execSync(`git -C ${PROJECT_ROOT} pull origin main --rebase -q 2>/dev/null`, { timeout: 15000 }); } catch {}
+}, 60000);
 
 function exec(cmd) {
   try {
@@ -27,7 +33,7 @@ function getRunner() {
 }
 
 function getRuns() {
-  const raw = exec(`gh run list --repo ${REPO} --workflow "Feedback Auto-Fix" --limit 10 --json databaseId,name,status,conclusion,createdAt`);
+  const raw = exec(`gh run list --repo ${REPO} --workflow "Feedback Auto-Fix" --limit 20 --json databaseId,name,status,conclusion,createdAt`);
   try {
     const runs = JSON.parse(raw);
     // Also get release runs
@@ -49,15 +55,11 @@ function getFeedback() {
   try { processed = JSON.parse(fs.readFileSync(processedFile, 'utf8')); } catch {}
 
   // Fetch all feedback from API
-  // UPDATE: Set these via environment variables
-  const keyId = process.env.ASC_KEY_ID || 'YOUR_KEY_ID';
-  const keyPath = path.join(process.env.HOME, `.appstoreconnect/private_keys/AuthKey_${keyId}.p8`);
+  const keyPath = path.join(process.env.HOME, '.appstoreconnect/private_keys/AuthKey_WX8F2D4DB2.p8');
   let privateKey = '';
   try { privateKey = fs.readFileSync(keyPath, 'utf8'); } catch {}
 
-  const issuerId = process.env.ASC_ISSUER_ID || 'YOUR_ISSUER_ID';
-  const appId = process.env.ASC_APP_ID || 'YOUR_APP_ID';
-  const allRaw = exec(`cd ${PROJECT_ROOT} && ASC_KEY_ID=${keyId} ASC_ISSUER_ID=${issuerId} ASC_PRIVATE_KEY="${privateKey.replace(/"/g, '\\"')}" ASC_APP_ID=${appId} npx tsx scripts/fetch-all-feedback.ts 2>/dev/null`);
+  const allRaw = exec(`cd ${PROJECT_ROOT} && ASC_KEY_ID=WX8F2D4DB2 ASC_ISSUER_ID=129ed4db-f070-45d3-b1ae-ae3d76d663e0 ASC_PRIVATE_KEY="${privateKey.replace(/"/g, '\\"')}" ASC_APP_ID=6761160268 npx tsx scripts/fetch-all-feedback.ts 2>/dev/null`);
 
   let all = [];
   try { all = JSON.parse(allRaw); } catch {}
@@ -87,7 +89,7 @@ function getFeedback() {
 }
 
 function getFixes() {
-  const raw = exec(`git -C ${PROJECT_ROOT} log --oneline --format='{"sha":"%H","message":"%s","date":"%aI"}' main --grep="^fix:" -20`);
+  const raw = exec(`git -C ${PROJECT_ROOT} log --oneline --format='{"sha":"%H","message":"%s","date":"%aI"}' --grep="^fix:" -20`);
   try {
     return raw.split('\n').filter(Boolean).map(line => JSON.parse(line));
   } catch { return []; }
@@ -110,7 +112,7 @@ function getLiveLog() {
   let logLines = [];
 
   // New commits made by Claude
-  const commitsRaw = exec(`git -C ${PROJECT_ROOT} log --oneline origin/main..HEAD 2>/dev/null`);
+  const commitsRaw = exec(`git -C ${PROJECT_ROOT} log --oneline origin/main..HEAD -- 2>/dev/null`);
   if (commitsRaw) {
     commitsRaw.split('\n').filter(Boolean).forEach(c => {
       logLines.push('✅ ' + c);
@@ -156,6 +158,22 @@ const server = http.createServer((req, res) => {
       case 'feedback': data = getFeedback(); break;
       case 'fixes': data = getFixes(); break;
       case 'livelog': data = getLiveLog(); break;
+      case 'settings': {
+        const key = url.searchParams.get('key');
+        const value = url.searchParams.get('value');
+        if (key && value) {
+          const settingsFile = path.join(PROJECT_ROOT, '.github', 'build-settings.json');
+          let settings = {};
+          try { settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
+          settings[key] = value;
+          fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+          data = { ok: true, settings };
+        } else {
+          const settingsFile = path.join(PROJECT_ROOT, '.github', 'build-settings.json');
+          try { data = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch { data = {}; }
+        }
+        break;
+      }
       case 'commitdiff': {
         const sha = url.searchParams.get('sha');
         if (sha) {
