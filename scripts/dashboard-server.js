@@ -5,7 +5,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const PORT = process.env.PORT || 8090;
-const REPO = 'nicejungle/caloriecoach-ios';
+const REPO = process.env.GITHUB_REPO || 'OWNER/REPO'; // UPDATE: your repo
 const PROJECT_ROOT = process.env.DASHBOARD_REPO || path.join(process.env.HOME, 'dashboard-repo');
 
 // Install deps and auto-pull every 60 seconds
@@ -55,11 +55,14 @@ function getFeedback() {
   try { processed = JSON.parse(fs.readFileSync(processedFile, 'utf8')); } catch {}
 
   // Fetch all feedback from API
-  const keyPath = path.join(process.env.HOME, '.appstoreconnect/private_keys/AuthKey_WX8F2D4DB2.p8');
+  const keyId = process.env.ASC_KEY_ID || 'YOUR_KEY_ID';
+  const keyPath = path.join(process.env.HOME, `.appstoreconnect/private_keys/AuthKey_${keyId}.p8`);
   let privateKey = '';
   try { privateKey = fs.readFileSync(keyPath, 'utf8'); } catch {}
 
-  const allRaw = exec(`cd ${PROJECT_ROOT} && ASC_KEY_ID=WX8F2D4DB2 ASC_ISSUER_ID=129ed4db-f070-45d3-b1ae-ae3d76d663e0 ASC_PRIVATE_KEY="${privateKey.replace(/"/g, '\\"')}" ASC_APP_ID=6761160268 npx tsx scripts/fetch-all-feedback.ts 2>/dev/null`);
+  const issuerId = process.env.ASC_ISSUER_ID || 'YOUR_ISSUER_ID';
+  const appId = process.env.ASC_APP_ID || 'YOUR_APP_ID';
+  const allRaw = exec(`cd ${PROJECT_ROOT} && ASC_KEY_ID=${keyId} ASC_ISSUER_ID=${issuerId} ASC_PRIVATE_KEY="${privateKey.replace(/"/g, '\\"')}" ASC_APP_ID=${appId} npx tsx scripts/fetch-all-feedback.ts 2>/dev/null`);
 
   let all = [];
   try { all = JSON.parse(allRaw); } catch {}
